@@ -1,0 +1,3 @@
+# Railway/Nixpacks: Ghostscript required for pdf2pic PDF → PNG conversion.
+[phases.setup]
+aptPkgs = ["ghostscript", "graphicsmagick"]

@@ -1,0 +1,74 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/client/node_modules
+/server/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/client/dist
+/server/dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files — never commit secrets; example files are allowed
+.env
+.env.*
+!.env.example
+!**/.env.example
+server/.env
+client/.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Uploaded HRDC certificates (local)
+server/uploads/hrdc-certs/*
+!server/uploads/hrdc-certs/.gitkeep
+
+# Uploaded company logos (local)
+server/uploads/company-profile-photos/*
+!server/uploads/company-profile-photos/.gitkeep
+
+# SQLite
+server/*.db
+server/*.db-journal
+server/*.db-shm
+server/*.db-wal
+server/**/*.db
+server/**/*.db-journal
+
+# Payment / QR uploads (local)
+server/uploads/payment-proofs/
+server/uploads/payment-qr/
+
+# Trainer profile photos (local)
+server/uploads/trainer-profile-photos/*
+!server/uploads/trainer-profile-photos/.gitkeep

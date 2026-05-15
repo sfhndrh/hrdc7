@@ -1,0 +1,174 @@
+import pg from "pg";
+import { getDatabaseUrl, isProduction } from "../config/env.js";
+
+const { Pool } = pg;
+
+let pool: pg.Pool | null = null;
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS "User" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "email" TEXT NOT NULL,
+  "passwordHash" TEXT NOT NULL,
+  "role" TEXT NOT NULL DEFAULT 'CLIENT',
+  "createdAt" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+
+CREATE TABLE IF NOT EXISTS "Trainer" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "fullName" TEXT NOT NULL,
+  "phone" TEXT NOT NULL,
+  "bio" TEXT NOT NULL,
+  "expertise" TEXT NOT NULL,
+  "yearsExp" INTEGER NOT NULL,
+  "linkedIn" TEXT,
+  "portfolioUrl" TEXT,
+  "profilePhoto" TEXT,
+  "stateOrLocation" TEXT,
+  "languages" TEXT,
+  "deliveryModes" TEXT NOT NULL,
+  "willingToTravel" TEXT,
+  "travelLocations" TEXT NOT NULL,
+  "certFileUrl" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'PENDING',
+  "adminNote" TEXT,
+  "approvedAt" TEXT,
+  "ai_recommendation" TEXT,
+  "createdAt" TEXT NOT NULL,
+  "updatedAt" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Trainer_userId_key" ON "Trainer"("userId");
+
+CREATE TABLE IF NOT EXISTS "AiVerification" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "trainerId" TEXT NOT NULL REFERENCES "Trainer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "validCert" BOOLEAN NOT NULL,
+  "extractedName" TEXT,
+  "certNumber" TEXT,
+  "issueDate" TEXT,
+  "expiryDate" TEXT,
+  "domain" TEXT,
+  "confidence" INTEGER NOT NULL,
+  "flags" TEXT NOT NULL,
+  "summary" TEXT,
+  "rawResponse" TEXT NOT NULL,
+  "createdAt" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "AiVerification_trainerId_key" ON "AiVerification"("trainerId");
+
+CREATE TABLE IF NOT EXISTS ai_verification (
+  id                TEXT PRIMARY KEY,
+  trainer_id        TEXT NOT NULL UNIQUE REFERENCES "Trainer"("id") ON DELETE CASCADE,
+  overall_passed    BOOLEAN NOT NULL DEFAULT false,
+  confidence_score  INTEGER NOT NULL DEFAULT 0,
+  flags             TEXT NOT NULL DEFAULT '[]',
+  cert_is_hrdc      BOOLEAN,
+  cert_name         TEXT,
+  cert_number       TEXT,
+  cert_issue_date   TEXT,
+  cert_expiry_date  TEXT,
+  cert_domain       TEXT,
+  cert_expired      BOOLEAN,
+  cert_has_seal     BOOLEAN,
+  cert_tampered     BOOLEAN,
+  name_matches_reg  BOOLEAN,
+  ai_recommendation TEXT,
+  summary           TEXT,
+  raw_response      TEXT NOT NULL DEFAULT '{}',
+  created_at        TEXT NOT NULL DEFAULT (NOW()::text)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id          TEXT PRIMARY KEY,
+  type        TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  trainer_id  TEXT,
+  is_read     BOOLEAN NOT NULL DEFAULT false,
+  created_at  TEXT NOT NULL DEFAULT (NOW()::text)
+);
+
+CREATE TABLE IF NOT EXISTS "Client" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "companyName" TEXT NOT NULL,
+  "regNumber" TEXT NOT NULL,
+  "industry" TEXT NOT NULL,
+  "contactName" TEXT NOT NULL,
+  "contactEmail" TEXT,
+  "phone" TEXT NOT NULL,
+  "address" TEXT,
+  "profilePhoto" TEXT,
+  "profileComplete" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TEXT NOT NULL,
+  "updatedAt" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Client_userId_key" ON "Client"("userId");
+
+CREATE TABLE IF NOT EXISTS "Subscription" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "clientId" TEXT NOT NULL REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "status" TEXT NOT NULL DEFAULT 'PENDING_PAYMENT',
+  "planType" TEXT NOT NULL DEFAULT 'monthly',
+  "amount" DOUBLE PRECISION NOT NULL,
+  "proofUrl" TEXT,
+  "notes" TEXT,
+  "requestedAt" TEXT NOT NULL,
+  "paidAt" TEXT,
+  "expiresAt" TEXT,
+  "approvedBy" TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Subscription_clientId_key" ON "Subscription"("clientId");
+
+CREATE TABLE IF NOT EXISTS "PaymentSubmission" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "clientId" TEXT NOT NULL REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "amount" DOUBLE PRECISION NOT NULL,
+  "proofUrl" TEXT,
+  "notes" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'PENDING',
+  "submittedAt" TEXT NOT NULL,
+  "reviewedAt" TEXT,
+  "reviewedBy" TEXT
+);
+CREATE INDEX IF NOT EXISTS "PaymentSubmission_clientId_idx" ON "PaymentSubmission"("clientId");
+
+CREATE TABLE IF NOT EXISTS "PaymentSettings" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "bankName" TEXT,
+  "accountName" TEXT,
+  "accountNumber" TEXT,
+  "amount" DOUBLE PRECISION NOT NULL DEFAULT 99,
+  "qrImageUrl" TEXT,
+  "updatedAt" TEXT NOT NULL
+);
+`;
+
+export function getPool(): pg.Pool {
+  if (!pool) {
+    const useSsl =
+      process.env.DATABASE_SSL === "true" ||
+      (isProduction && process.env.DATABASE_SSL !== "false");
+
+    pool = new Pool({
+      connectionString: getDatabaseUrl(),
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+    });
+  }
+  return pool;
+}
+
+export async function initDb(): Promise<void> {
+  const p = getPool();
+  await p.query(SCHEMA);
+}
+
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
