@@ -72,3 +72,7 @@ server/uploads/payment-qr/
 # Trainer profile photos (local)
 server/uploads/trainer-profile-photos/*
 !server/uploads/trainer-profile-photos/.gitkeep
+
+# Scraped HRDC training provider data
+data/training-providers.json
+data/sample-*.html

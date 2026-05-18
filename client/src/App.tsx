@@ -14,6 +14,7 @@ import AdminTrainerReviewPage from "@/screens/AdminTrainerReviewPage";
 import AdminTrainersPage from "@/screens/AdminTrainersPage";
 import AdminNotificationsPage from "@/screens/AdminNotificationsPage";
 import AdminSettingsPage from "@/screens/admin-settings/page";
+import AdminTrainingProvidersPage from "@/screens/AdminTrainingProvidersPage";
 import ClientDashboardPage from "@/screens/ClientDashboardPage";
 import ClientProfileEditPage from "@/screens/ClientProfileEditPage";
 import ClientProfilePage from "@/screens/ClientProfilePage";
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="clients" element={<AdminClientsPage />} />
         <Route path="clients/:id" element={<AdminClientDetailPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
+        <Route path="training-providers" element={<AdminTrainingProvidersPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
       </Route>

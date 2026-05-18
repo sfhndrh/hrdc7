@@ -7,7 +7,8 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w server && npm run build -w client",
     "start": "npm run start -w server",
-    "db:seed": "npm run db:seed -w server"
+    "db:seed": "npm run db:seed -w server",
+    "db:scrape-providers": "npm run db:scrape-providers -w server"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"

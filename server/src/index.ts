@@ -8,9 +8,11 @@ import express from "express";
 
 import { getClientUrl, isProduction, validateProductionEnv } from "./config/env.js";
 import { initDb } from "./db/connection.js";
+import { ensureTrainingProvidersInDb } from "./lib/training-providers-store.js";
 import { buildCorsOptions } from "./lib/cors.js";
 import { ensureUploadDirs } from "./lib/uploads.js";
 import { restRouter } from "./routes/rest.js";
+import { trainingProvidersRouter } from "./routes/training-providers.js";
 import verifyRouter from "./routes/verify.js";
 
 function warnIfGhostscriptMissing() {
@@ -36,6 +38,7 @@ async function main() {
   validateProductionEnv();
   ensureUploadDirs();
   await initDb();
+  await ensureTrainingProvidersInDb();
   warnIfGhostscriptMissing();
 
   const app = express();
@@ -49,6 +52,7 @@ async function main() {
   app.use(express.json({ limit: "2mb" }));
   app.use(cookieParser());
   app.use("/api", restRouter);
+  app.use("/api", trainingProvidersRouter);
   app.use("/api/trainer", verifyRouter);
 
   // Optional: serve built client when API and UI share one host (not used for Vercel split).

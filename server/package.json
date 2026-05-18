@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:seed": "tsx seed.ts"
+    "db:seed": "tsx seed.ts",
+    "db:scrape-providers": "tsx scripts/scrape-training-providers.ts"
   },
   "engines": {
     "node": ">=20"

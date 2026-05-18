@@ -93,6 +93,14 @@ export function PageHeaderIconHome({ className }: { className?: string }) {
   );
 }
 
+export function PageHeaderIconList({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={cn(iconClass, className)} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  );
+}
+
 export function PageHeaderIconApprove({ className }: { className?: string }) {
   return (
     <svg

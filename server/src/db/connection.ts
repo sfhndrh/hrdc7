@@ -144,6 +144,45 @@ CREATE TABLE IF NOT EXISTS "PaymentSettings" (
   "qrImageUrl" TEXT,
   "updatedAt" TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS training_provider_sync (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  scraped_at TEXT NOT NULL,
+  model TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS training_provider (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  registration_no TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  fax TEXT NOT NULL DEFAULT '',
+  website TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  detail_url TEXT NOT NULL DEFAULT '',
+  scraped_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS training_provider_name_idx ON training_provider(name);
+
+CREATE TABLE IF NOT EXISTS training_provider_course (
+  id TEXT PRIMARY KEY,
+  provider_id TEXT NOT NULL REFERENCES training_provider(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '',
+  code TEXT NOT NULL DEFAULT '',
+  scheme TEXT NOT NULL DEFAULT '',
+  claimable BOOLEAN NOT NULL DEFAULT false,
+  duration TEXT NOT NULL DEFAULT '',
+  fee TEXT NOT NULL DEFAULT '',
+  mode TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS training_provider_course_provider_idx ON training_provider_course(provider_id);
 `;
 
 export function getPool(): pg.Pool {
