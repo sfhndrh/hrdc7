@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { TrainerPageHeader } from "@/components/dashboard/trainer-page-header";
 import { TrainerNavIconProfile } from "@/components/dashboard/trainer-sidebar-icons";
+import { ProfilePhotoCircle } from "@/components/profile/profile-photo-circle";
 import { useAuth } from "@/auth/AuthProvider";
 
 function trainerIsApproved(status: string) {
@@ -16,6 +17,7 @@ function trainerIsApproved(status: string) {
 
 type TrainerRow = {
   fullName: string;
+  profilePhoto: string | null;
   phone: string;
   bio: string;
   expertise: string[];
@@ -97,9 +99,11 @@ export default function TrainerProfilePage() {
 
       <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-4">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-sky-100 text-lg font-semibold text-sky-700">
-            {initials || "T"}
-          </div>
+          <ProfilePhotoCircle
+            photoUrl={isAdminViewer ? null : trainer!.profilePhoto}
+            fallback={initials || "T"}
+            alt={fullName}
+          />
           <div className="min-w-0">
             <h1 className="text-2xl font-bold leading-tight text-[color:var(--text)]">{fullName}</h1>
             <div className="mt-1 text-sm text-[color:var(--text-muted)]">Trainer</div>

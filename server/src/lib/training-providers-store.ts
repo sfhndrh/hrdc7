@@ -44,7 +44,7 @@ export async function ensureTrainingProvidersInDb(): Promise<void> {
   const fromJson = await readTrainingProvidersJson();
   if (!fromJson) {
     console.log(
-      "[info] No training providers in database. Run once: npm run db:scrape-providers",
+      "[info] No training providers in database. Run npm run db:scrape-providers then import CSV.",
     );
     return;
   }

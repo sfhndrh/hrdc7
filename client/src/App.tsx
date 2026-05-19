@@ -18,10 +18,10 @@ import AdminTrainingProvidersPage from "@/screens/AdminTrainingProvidersPage";
 import ClientDashboardPage from "@/screens/ClientDashboardPage";
 import ClientProfileEditPage from "@/screens/ClientProfileEditPage";
 import ClientProfilePage from "@/screens/ClientProfilePage";
+import ClientSettingsPage from "@/screens/ClientSettingsPage";
 import ClientSubscriptionPage from "@/screens/ClientSubscriptionPage";
 import ClientTrainerDetailPage from "@/screens/ClientTrainerDetailPage";
 import ClientTrainersPage from "@/screens/ClientTrainersPage";
-import ClientCalendarPage from "@/screens/client-calendar/page";
 import ClientMessagesPage from "@/screens/client-messages/page";
 import ClientSubscriptionCheckoutPage from "@/screens/client-subscription-checkout/page";
 import HomePage from "@/screens/HomePage";
@@ -36,6 +36,7 @@ import TrainerMessagesPage from "@/screens/trainer-messages/page";
 import TrainerProfileEditPage from "@/screens/TrainerProfileEditPage";
 import TrainerProfilePage from "@/screens/TrainerProfilePage";
 import TrainerPromotionsPage from "@/screens/trainer-promotions/page";
+import TrainerSettingsPage from "@/screens/TrainerSettingsPage";
 
 export default function App() {
   return (
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="messages" element={<TrainerMessagesPage />} />
         <Route path="inquiries" element={<Navigate to="/trainer/messages" replace />} />
         <Route path="calendar" element={<TrainerCalendarPage />} />
+        <Route path="settings" element={<TrainerSettingsPage />} />
         <Route path="promotions" element={<TrainerPromotionsPage />} />
       </Route>
 
@@ -81,9 +83,9 @@ export default function App() {
         <Route path="trainers" element={<ClientTrainersPage />} />
         <Route path="trainers/:id" element={<ClientTrainerDetailPage />} />
         <Route path="messages" element={<ClientMessagesPage />} />
-        <Route path="calendar" element={<ClientCalendarPage />} />
         <Route path="subscription" element={<ClientSubscriptionPage />} />
         <Route path="subscription/checkout" element={<ClientSubscriptionCheckoutPage />} />
+        <Route path="settings" element={<ClientSettingsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

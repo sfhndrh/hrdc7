@@ -52,6 +52,10 @@ export const TRAINING_PROVIDERS_JSON_PATH =
   process.env.TRAINING_PROVIDERS_DATA_PATH?.trim() ||
   path.join(REPO_ROOT, "data", "training-providers.json");
 
+export const TRAINING_PROVIDERS_CSV_PATH =
+  process.env.TRAINING_PROVIDERS_CSV_PATH?.trim() ||
+  path.join(REPO_ROOT, "data", "training-providers.csv");
+
 export function computeProvidersStats(providers: TrainingProvider[]): ProvidersDataStats {
   let totalCourses = 0;
   let claimableCourses = 0;

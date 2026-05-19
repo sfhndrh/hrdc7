@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/admin-accounts-chrome";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { cn } from "@/components/ui/button";
+import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 
 export type AdminTrainerRow = {
   id: string;
@@ -168,7 +169,7 @@ export function AdminTrainersView({
                   <td className="px-4 py-4 align-middle">
                     <div className="flex items-start gap-3">
                       <AdminAvatar
-                        src={t.profilePhoto ?? null}
+                        src={normalizeProfilePhotoUrl(t.profilePhoto)}
                         alt={t.fullName}
                         fallback={initialsFromName(t.fullName)}
                       />

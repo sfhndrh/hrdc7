@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Navigate } from "react-router-dom";
 
+import { TrainerCertificateReupload } from "@/components/certificate/trainer-certificate-reupload";
 import {
   AiVerificationReportPanel,
   CertificatePreviewBlock,
@@ -51,6 +52,15 @@ export default function TrainerCertificatePage() {
   const [verification, setVerification] = useState<VerificationApiRow | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [loadingV, setLoadingV] = useState(true);
+  const [verifying, setVerifying] = useState(false);
+
+  const loadTrainer = useCallback(() => {
+    if (!user || user.role !== "TRAINER") return;
+    void apiFetch("/api/trainer/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { trainer: TrainerMe | null }) => setTrainer(d.trainer))
+      .catch(() => setTrainer(null));
+  }, [user]);
 
   const loadVerification = useCallback(() => {
     setLoadingV(true);
@@ -84,6 +94,20 @@ export default function TrainerCertificatePage() {
     loadVerification();
   }, [authLoading, user, loadVerification]);
 
+  const handleCertificateUpdated = useCallback(() => {
+    setVerifying(true);
+    loadTrainer();
+    loadVerification();
+    const delays = [3000, 6000, 10000, 15000];
+    for (const ms of delays) {
+      window.setTimeout(() => {
+        loadVerification();
+        loadTrainer();
+      }, ms);
+    }
+    window.setTimeout(() => setVerifying(false), delays[delays.length - 1]! + 500);
+  }, [loadTrainer, loadVerification]);
+
   if (authLoading || loadingMe) {
     return <div className="p-6 text-sm text-[color:var(--text-muted)]">Loading…</div>;
   }
@@ -96,7 +120,7 @@ export default function TrainerCertificatePage() {
   const previewUrl = uploaded ? trainer.certFileUrl : null;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <TrainerPageHeader
         title="Certificate"
         icon={<TrainerNavIconCertificate />}
@@ -118,14 +142,18 @@ export default function TrainerCertificatePage() {
                   HRDC certificate (PDF or image) so it appears here.
                 </p>
               ) : null}
+              <TrainerCertificateReupload
+                disabled={verifying}
+                onUpdated={handleCertificateUpdated}
+              />
             </div>
 
             <div className="space-y-4">
               <AiVerificationReportPanel
                 verification={verification}
-                loading={loadingV}
-                rerun={null}
-                showRefresh={false}
+                loading={loadingV || verifying}
+                onRefresh={loadVerification}
+                showRefresh
               />
 
               <div className="rounded-xl border border-[color:var(--border)] bg-white p-4">

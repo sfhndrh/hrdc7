@@ -200,9 +200,15 @@ export function getPool(): pg.Pool {
   return pool;
 }
 
+const SCHEMA_MIGRATIONS = `
+ALTER TABLE "Trainer" ADD COLUMN IF NOT EXISTS "earliestStartDate" TEXT;
+ALTER TABLE "Trainer" ADD COLUMN IF NOT EXISTS "availabilityStatus" TEXT;
+`;
+
 export async function initDb(): Promise<void> {
   const p = getPool();
   await p.query(SCHEMA);
+  await p.query(SCHEMA_MIGRATIONS);
 }
 
 export async function closeDb(): Promise<void> {

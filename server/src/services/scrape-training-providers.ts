@@ -26,7 +26,69 @@ export type ScrapeOptions = {
   maxProviders?: number;
   recordsPerPage?: number;
   onProgress?: (message: string) => void;
+  /** When false, only returns scraped data (e.g. CLI export to CSV). Default true. */
+  persistToDatabase?: boolean;
+  /** Listing pages only — much faster; keeps email/phone from the HRDC table. */
+  skipDetailPages?: boolean;
+  /** Skip crawling provider websites for missing contact info. */
+  skipWebsiteEnrichment?: boolean;
 };
+
+function envFlag(name: string): boolean {
+  const v = process.env[name]?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+function envInt(name: string, fallback: number): number {
+  const n = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeProviderName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function listingDedupeKey(row: ListingRow): string {
+  const reg = row.registrationNo.trim().toLowerCase();
+  if (reg) return `reg:${reg}`;
+  return `name:${normalizeProviderName(row.name)}`;
+}
+
+function listingRowScore(row: ListingRow): number {
+  return (
+    (row.email?.trim() ? 4 : 0) +
+    (row.phone?.trim() ? 4 : 0) +
+    (row.address?.trim() ? 2 : 0) +
+    (row.detailHref?.trim() ? 1 : 0) +
+    (row.registrationNo?.trim() ? 1 : 0)
+  );
+}
+
+function mergeListingRow(keep: ListingRow, other: ListingRow): ListingRow {
+  const preferOther = listingRowScore(other) > listingRowScore(keep);
+  const primary = preferOther ? other : keep;
+  const secondary = preferOther ? keep : other;
+  return {
+    name: primary.name || secondary.name,
+    registrationNo: primary.registrationNo || secondary.registrationNo,
+    status: primary.status || secondary.status,
+    detailHref: primary.detailHref || secondary.detailHref,
+    email: primary.email?.trim() || secondary.email?.trim() || "",
+    phone: primary.phone?.trim() || secondary.phone?.trim() || "",
+    address: primary.address?.trim() || secondary.address?.trim() || "",
+  };
+}
+
+function dedupeListingRows(rows: ListingRow[]): ListingRow[] {
+  const byKey = new Map<string, ListingRow>();
+  for (const row of rows) {
+    if (!row.name.trim()) continue;
+    const key = listingDedupeKey(row);
+    const prev = byKey.get(key);
+    byKey.set(key, prev ? mergeListingRow(prev, row) : row);
+  }
+  return [...byKey.values()];
+}
 
 export type ScrapeStats = {
   listingPagesFetched: number;
@@ -376,9 +438,19 @@ export async function scrapeTrainingProviders(
   options: ScrapeOptions = {},
 ): Promise<{ count: number; stats: ScrapeStats; data: ProvidersData }> {
   const recordsPerPage = options.recordsPerPage ?? 100;
-  const maxPages = options.maxPages ?? 0;
-  const maxProviders = options.maxProviders ?? 0;
+  const maxPages = options.maxPages ?? envInt("SCRAPE_MAX_PAGES", 0);
+  const maxProviders = options.maxProviders ?? envInt("SCRAPE_MAX_PROVIDERS", 0);
+  const skipDetail =
+    options.skipDetailPages ?? envFlag("SCRAPE_SKIP_DETAIL");
+  const skipEnrich =
+    options.skipWebsiteEnrichment ?? envFlag("SCRAPE_SKIP_WEBSITE_ENRICH");
   const log = options.onProgress ?? (() => {});
+
+  if (skipDetail) {
+    log(
+      "Fast mode: listing pages only (SCRAPE_SKIP_DETAIL). Email/phone come from the HRDC table, not detail pages.",
+    );
+  }
 
   const scrapeStats: ScrapeStats = {
     listingPagesFetched: 0,
@@ -415,15 +487,14 @@ export async function scrapeTrainingProviders(
     log(`Page ${page}/${pagesToFetch}: ${rows.length} providers`);
   }
 
-  const uniqueRows: ListingRow[] = [];
-  const seenNames = new Set<string>();
-  for (const row of allRows) {
-    if (!row.name.trim()) continue;
-    const key = row.name.toLowerCase();
-    if (seenNames.has(key)) continue;
-    seenNames.add(key);
-    uniqueRows.push(row);
-    if (maxProviders > 0 && uniqueRows.length >= maxProviders) break;
+  let uniqueRows = dedupeListingRows(allRows);
+  if (maxProviders > 0) {
+    uniqueRows = uniqueRows.slice(0, maxProviders);
+  }
+
+  const dropped = allRows.length - uniqueRows.length;
+  if (dropped > 0) {
+    log(`Removed ${dropped} duplicate listing row(s) (kept richer contact fields).`);
   }
 
   scrapeStats.providersListed = uniqueRows.length;
@@ -442,7 +513,7 @@ export async function scrapeTrainingProviders(
 
     let provider = listingRowToProvider(row, detailUrl, scrapedAt);
 
-    if (detailUrl) {
+    if (!skipDetail && detailUrl) {
       try {
         await sleep(FETCH_DELAY_MS);
         const detailHtml = await fetchHtml(detailUrl);
@@ -471,7 +542,11 @@ export async function scrapeTrainingProviders(
       }
     }
 
-    if (needsContactEnrichment(provider) && provider.website.trim()) {
+    if (
+      !skipEnrich &&
+      needsContactEnrichment(provider) &&
+      provider.website.trim()
+    ) {
       try {
         const enriched = await fetchWebsiteContactPages(
           provider.website,
@@ -502,7 +577,9 @@ export async function scrapeTrainingProviders(
     providers,
   };
 
-  await saveTrainingProviders(data);
+  if (options.persistToDatabase !== false) {
+    await saveTrainingProviders(data);
+  }
 
   return {
     count: providers.length,

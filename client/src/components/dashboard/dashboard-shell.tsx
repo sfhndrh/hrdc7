@@ -155,7 +155,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7fc]">
+    <div className="h-screen overflow-hidden bg-[#f4f7fc]">
       <aside
         className="fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-[color:var(--border)] bg-white shadow-[2px_0_12px_rgba(11,31,59,0.06)] transition-[width] duration-200"
         style={{ width: sidebarWidth }}
@@ -229,7 +229,6 @@ export function DashboardShell({
                   }`}
                   aria-disabled
                 >
-                  <span className="h-2 w-2 rounded-full bg-transparent" />
                   {item.icon ? (
                     <span className="-ml-0.5 grid h-5 w-5 place-items-center text-[color:var(--text-muted)]">
                       {item.icon}
@@ -248,7 +247,7 @@ export function DashboardShell({
                   active
                     ? "bg-[color:var(--primary)] text-[color:var(--primary-foreground)] shadow-sm"
                     : "text-[color:var(--text)] hover:bg-sky-50"
-                } ${sidebarCollapsed ? "justify-center px-2" : ""}`}
+                } ${sidebarCollapsed ? "relative justify-center px-2" : ""}`}
               >
                 {item.icon ? (
                   <span className={`-ml-0.5 grid h-5 w-5 place-items-center ${active ? "text-white" : "text-[color:var(--text-muted)]"}`}>
@@ -256,7 +255,19 @@ export function DashboardShell({
                   </span>
                 ) : null}
                 <span className={sidebarCollapsed ? "hidden" : ""}>{item.label}</span>
-                {!sidebarCollapsed && item.badgeText ? (
+                {item.badgeDot && sidebarCollapsed ? (
+                  <span
+                    className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white"
+                    aria-label="Unread"
+                  />
+                ) : item.badgeDot ? (
+                  <span
+                    className={`ml-auto h-2 w-2 shrink-0 rounded-full bg-orange-500 ${
+                      active ? "ring-2 ring-white/40" : ""
+                    }`}
+                    aria-label="Unread"
+                  />
+                ) : !sidebarCollapsed && item.badgeText ? (
                   <span
                     className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                       active
@@ -300,7 +311,7 @@ export function DashboardShell({
         ) : null}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col" style={{ marginLeft: sidebarWidth }}>
+      <div className="flex h-screen min-w-0 flex-col" style={{ marginLeft: sidebarWidth }}>
         <header
           className={`fixed right-0 top-0 z-30 flex ${topbarHeightClass} shrink-0 items-center justify-between gap-6 border-b border-[color:var(--border)] bg-white px-6 shadow-sm`}
           style={{ left: sidebarWidth }}
@@ -492,7 +503,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="h-[calc(100vh-4rem)] overflow-auto px-6 pb-8 pt-20">
+        <main className="min-h-0 flex-1 overflow-y-auto px-6 pb-8 pt-20">
           {children}
         </main>
       </div>

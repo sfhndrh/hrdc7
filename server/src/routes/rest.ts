@@ -16,8 +16,10 @@ import {
 import { getApiBaseUrl } from "../config/env.js";
 import {
   COMPANY_PROFILE_PHOTO_DIR,
+  deleteUploadByPublicUrl,
   ensureUploadDirs,
   HRDC_CERT_UPLOAD_DIR,
+  resolveHrdcCertPath,
   PAYMENT_PROOF_DIR,
   PAYMENT_QR_DIR,
   TRAINER_PROFILE_PHOTO_DIR,
@@ -454,6 +456,128 @@ restRouter.patch("/client/profile", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+restRouter.delete("/client/account", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "CLIENT") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const client = await queryOne<{ id: string; profilePhoto: string | null }>(
+    `SELECT "id", "profilePhoto" FROM "Client" WHERE "userId" = ?`,
+    [u.sub],
+  );
+  if (!client) {
+    res.status(404).json({ error: "Client not found" });
+    return;
+  }
+
+  const subscriptions = await queryAll<{ proofUrl: string | null }>(
+    `SELECT "proofUrl" FROM "Subscription" WHERE "clientId" = ?`,
+    [client.id],
+  );
+  const payments = await queryAll<{ proofUrl: string | null }>(
+    `SELECT "proofUrl" FROM "PaymentSubmission" WHERE "clientId" = ?`,
+    [client.id],
+  );
+
+  const fileUrls = [
+    client.profilePhoto,
+    ...subscriptions.map((s) => s.proofUrl),
+    ...payments.map((p) => p.proofUrl),
+  ];
+
+  const deleted = await execute(
+    `DELETE FROM "User" WHERE "id" = ? AND "role" = 'CLIENT'`,
+    [u.sub],
+  );
+  if (deleted.rowCount === 0) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  for (const url of fileUrls) {
+    deleteUploadByPublicUrl(url);
+  }
+
+  clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
+const trainerAvailabilityPatchSchema = z.object({
+  availabilityStatus: z.enum(["AVAILABLE", "LIMITED", "UNAVAILABLE"]),
+  earliestStartDate: z.preprocess(
+    (v) => (v == null || v === "" ? null : String(v)),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format.")
+      .nullable(),
+  ),
+});
+
+restRouter.patch("/trainer/availability", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const parsed = trainerAvailabilityPatchSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid availability data." });
+    return;
+  }
+  const updated = await execute(
+    `UPDATE "Trainer" SET "availabilityStatus"=?, "earliestStartDate"=?, "updatedAt"=?
+     WHERE "userId"=?`,
+    [
+      parsed.data.availabilityStatus,
+      parsed.data.earliestStartDate,
+      isoNow(),
+      u.sub,
+    ],
+  );
+  if (updated.rowCount === 0) {
+    res.status(404).json({ error: "Trainer not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+restRouter.delete("/trainer/account", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const trainer = await queryOne<{ id: string; certFileUrl: string | null; profilePhoto: string | null }>(
+    `SELECT "id", "certFileUrl", "profilePhoto" FROM "Trainer" WHERE "userId" = ?`,
+    [u.sub],
+  );
+  if (!trainer) {
+    res.status(404).json({ error: "Trainer not found" });
+    return;
+  }
+
+  const fileUrls = [trainer.certFileUrl, trainer.profilePhoto];
+
+  const deleted = await execute(
+    `DELETE FROM "User" WHERE "id" = ? AND "role" = 'TRAINER'`,
+    [u.sub],
+  );
+  if (deleted.rowCount === 0) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  for (const url of fileUrls) {
+    deleteUploadByPublicUrl(url);
+  }
+
+  clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
 const trainerProfilePutSchema = z
   .object({
     fullName: z.string().trim().min(2).max(120),
@@ -577,6 +701,80 @@ restRouter.patch("/client/profile-photo", requireAuth, async (req, res) => {
   res.json({ ok: true, profilePhotoUrl: parsed.data.profilePhotoUrl });
 });
 
+const trainerCertFileUrlSchema = z.object({
+  certFileUrl: z
+    .string()
+    .min(1)
+    .refine((s) => s !== "pending-upload", "Upload your HRDC certificate")
+    .refine(
+      (s) =>
+        s.startsWith("/api/uploads/certificates/") ||
+        s.startsWith("/uploads/") ||
+        /^https?:\/\//i.test(s),
+      "Invalid certificate file reference",
+    ),
+});
+
+restRouter.patch("/trainer/certificate", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const parsed = trainerCertFileUrlSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid payload",
+      details: parsed.error.flatten(),
+    });
+    return;
+  }
+
+  const row = await queryOne<{ id: string; certFileUrl: string }>(
+    `SELECT "id", "certFileUrl" FROM "Trainer" WHERE "userId" = ?`,
+    [u.sub],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Trainer not found" });
+    return;
+  }
+
+  const newUrl = parsed.data.certFileUrl;
+  const oldUrl = String(row.certFileUrl ?? "").trim();
+  const now = isoNow();
+
+  await execute(
+    `UPDATE "Trainer" SET "certFileUrl"=?, "status"='UNDER_REVIEW', "adminNote"=NULL, "updatedAt"=? WHERE "id"=?`,
+    [newUrl, now, row.id],
+  );
+
+  if (
+    oldUrl &&
+    oldUrl !== newUrl &&
+    oldUrl.startsWith("/api/uploads/certificates/")
+  ) {
+    try {
+      const filename = path.basename(oldUrl);
+      const certPath = resolveHrdcCertPath(filename);
+      if (fs.existsSync(certPath)) fs.unlinkSync(certPath);
+    } catch {
+      /* best-effort cleanup */
+    }
+  }
+
+  fetch(`${getApiBaseUrl()}/api/trainer/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trainerId: row.id, force: true }),
+  }).catch((err) => console.error("Certificate re-verify trigger error:", err));
+
+  res.json({
+    ok: true,
+    certFileUrl: newUrl,
+    message: "Certificate updated. AI verification is running.",
+  });
+});
+
 restRouter.patch("/trainer/profile-photo", requireAuth, async (req, res) => {
   const u = req.authUser!;
   if (u.role !== "TRAINER") {
@@ -679,6 +877,12 @@ restRouter.get("/trainer/me", requireAuth, async (req, res) => {
       deliveryModes,
       willingToTravel: row.willingToTravel,
       travelLocations,
+      profilePhoto:
+        typeof row.profilePhoto === "string" && String(row.profilePhoto).trim()
+          ? String(row.profilePhoto).trim()
+          : null,
+      availabilityStatus: row.availabilityStatus ?? null,
+      earliestStartDate: row.earliestStartDate ?? null,
       aiVerification,
     },
     isAdminViewer: false,
@@ -1124,15 +1328,20 @@ restRouter.get("/admin/trainers", requireRoles(["ADMIN"]), async (_req, res) => 
        ORDER BY t."fullName" ASC`,
   );
   res.json({
-    trainers: rows.map((t) => ({
-      id: t.id,
-      fullName: t.fullName,
-      subtitle: trainerSubtitle(t.expertise),
-      email: t.email,
-      phone: t.phone,
-      status: t.status,
-      profilePhoto: t.profilePhoto ?? null,
-    })),
+    trainers: rows.map((t) => {
+      const rawPhoto = t.profilePhoto;
+      const profilePhoto =
+        typeof rawPhoto === "string" && rawPhoto.trim() ? rawPhoto.trim() : null;
+      return {
+        id: t.id,
+        fullName: t.fullName,
+        subtitle: trainerSubtitle(t.expertise),
+        email: t.email,
+        phone: t.phone,
+        status: t.status,
+        profilePhoto,
+      };
+    }),
   });
 });
 
@@ -1231,12 +1440,12 @@ restRouter.patch("/admin/trainers/:id/reject", requireRoles(["ADMIN"]), async (r
 restRouter.get("/admin/notifications", requireRoles(["ADMIN"]), async (_req, res) => {
   const rows = await queryAll<Record<string, unknown>>(
     `SELECT n."id", n."type", n."title", n."body", n."trainer_id", n."is_read", n."created_at",
-              t."fullName" AS trainerFullName,
-              t."phone" AS trainerPhone,
-              t."profilePhoto" AS trainerProfilePhoto,
-              t."stateOrLocation" AS trainerLocation,
-              t."expertise" AS trainerExpertiseJson,
-              u."email" AS trainerAccountEmail
+              t."fullName" AS "trainerFullName",
+              t."phone" AS "trainerPhone",
+              t."profilePhoto" AS "trainerProfilePhoto",
+              t."stateOrLocation" AS "trainerLocation",
+              t."expertise" AS "trainerExpertiseJson",
+              u."email" AS "trainerAccountEmail"
        FROM notifications n
        LEFT JOIN "Trainer" t ON t."id" = n.trainer_id
        LEFT JOIN "User" u ON u."id" = t."userId"
@@ -1247,12 +1456,17 @@ restRouter.get("/admin/notifications", requireRoles(["ADMIN"]), async (_req, res
   res.json(
     rows.map((row) => {
       let trainerExpertiseLabel = "—";
+      const expertiseRaw =
+        row.trainerExpertiseJson ?? row.trainerexpertisejson ?? "[]";
       try {
-        const ex = asStringArray(JSON.parse(String(row.trainerExpertiseJson ?? "[]")));
-        trainerExpertiseLabel = ex.slice(0, 4).join(", ") || "—";
+        const ex = asStringArray(JSON.parse(String(expertiseRaw)));
+        trainerExpertiseLabel = ex.slice(0, 6).join(", ") || "—";
       } catch {
         /* keep — */
       }
+      const rawPhoto = row.trainerProfilePhoto ?? row.trainerprofilephoto;
+      const profilePhoto =
+        typeof rawPhoto === "string" && rawPhoto.trim() ? rawPhoto.trim() : null;
       return {
         id: row.id,
         type: row.type,
@@ -1262,11 +1476,11 @@ restRouter.get("/admin/notifications", requireRoles(["ADMIN"]), async (_req, res
         is_read: row.is_read,
         created_at: row.created_at,
         isRead: Boolean(row.is_read),
-        trainerFullName: row.trainerFullName ?? null,
-        trainerPhone: row.trainerPhone ?? null,
-        trainerProfilePhoto: row.trainerProfilePhoto ?? null,
-        trainerLocation: row.trainerLocation ?? null,
-        trainerAccountEmail: row.trainerAccountEmail ?? null,
+        trainerFullName: row.trainerFullName ?? row.trainerfullname ?? null,
+        trainerPhone: row.trainerPhone ?? row.trainerphone ?? null,
+        trainerProfilePhoto: profilePhoto,
+        trainerLocation: row.trainerLocation ?? row.trainerlocation ?? null,
+        trainerAccountEmail: row.trainerAccountEmail ?? row.traineraccountemail ?? null,
         trainerExpertiseLabel,
       };
     }),

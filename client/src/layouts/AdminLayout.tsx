@@ -41,7 +41,7 @@ export function AdminLayout() {
         href: "/admin/approval",
         label: "Approval",
         icon: <IconCheckCircle />,
-        badgeText: unreadCount ? `${unreadCount} unread` : undefined,
+        badgeDot: unreadCount > 0,
         isActive: (p: string) => p === "/admin/approval" || /^\/admin\/trainers\/[^/]+\/review$/.test(p),
       },
       { href: "/admin/settings", label: "Settings", icon: <IconSettings /> },

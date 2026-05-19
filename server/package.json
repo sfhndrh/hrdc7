@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "db:seed": "tsx seed.ts",
-    "db:scrape-providers": "tsx scripts/scrape-training-providers.ts"
+    "db:scrape-providers": "tsx scripts/scrape-training-providers.ts",
+    "db:import-providers-csv": "tsx scripts/import-training-providers-csv.ts",
+    "db:dedupe-providers-csv": "tsx scripts/dedupe-providers-csv.ts"
   },
   "engines": {
     "node": ">=20"

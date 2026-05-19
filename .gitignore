@@ -75,4 +75,5 @@ server/uploads/trainer-profile-photos/*
 
 # Scraped HRDC training provider data
 data/training-providers.json
+data/training-providers.csv
 data/sample-*.html

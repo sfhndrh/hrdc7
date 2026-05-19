@@ -1,3 +1,4 @@
+import "../load-env.js";
 import express from "express";
 import path from "node:path";
 import fs from "node:fs";
@@ -12,7 +13,10 @@ import { notifyAdminVerification } from "../services/notify-admin.js";
 const router = express.Router();
 
 router.post("/verify", async (req, res) => {
-  const { trainerId } = (req.body ?? {}) as { trainerId?: string };
+  const { trainerId, force } = (req.body ?? {}) as {
+    trainerId?: string;
+    force?: boolean;
+  };
 
   if (!trainerId) {
     res.status(400).json({ error: "trainerId is required" });
@@ -29,7 +33,7 @@ router.post("/verify", async (req, res) => {
     return;
   }
 
-  if (trainer.status !== "PENDING") {
+  if (!force && trainer.status !== "PENDING") {
     res.status(200).json({ message: "Already processed" });
     return;
   }

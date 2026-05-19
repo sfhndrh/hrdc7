@@ -4,12 +4,14 @@ import { Navigate, Outlet } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 import {
   TrainerNavIconCalendar,
   TrainerNavIconCertificate,
   TrainerNavIconHome,
   TrainerNavIconInbox,
   TrainerNavIconProfile,
+  TrainerNavIconSettings,
 } from "@/components/dashboard/trainer-sidebar-icons";
 
 function trainerIsApproved(status: string) {
@@ -21,6 +23,7 @@ export function TrainerLayout() {
   const [trainerRecord, setTrainerRecord] = useState<{
     fullName: string;
     status: string;
+    profilePhoto: string | null;
   } | null>(null);
   const [shellLoading, setShellLoading] = useState(true);
 
@@ -41,16 +44,25 @@ export function TrainerLayout() {
     }
     void apiFetch("/api/trainer/me", { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { trainer?: { fullName: string; status: string } | null }) => {
-        if (d.trainer) {
-          setTrainerRecord({
-            fullName: d.trainer.fullName,
-            status: d.trainer.status,
-          });
-        } else {
-          setTrainerRecord(null);
-        }
-      })
+      .then(
+        (d: {
+          trainer?: {
+            fullName: string;
+            status: string;
+            profilePhoto?: string | null;
+          } | null;
+        }) => {
+          if (d.trainer) {
+            setTrainerRecord({
+              fullName: d.trainer.fullName,
+              status: d.trainer.status,
+              profilePhoto: normalizeProfilePhotoUrl(d.trainer.profilePhoto),
+            });
+          } else {
+            setTrainerRecord(null);
+          }
+        },
+      )
       .finally(() => setShellLoading(false));
   }, [user, loading]);
 
@@ -106,6 +118,7 @@ export function TrainerLayout() {
       disabled: !approved,
       hint: "Available after your profile is approved by an administrator",
     },
+    { href: "/trainer/settings", label: "Settings", icon: <TrainerNavIconSettings /> },
   ];
 
   return (
@@ -123,6 +136,7 @@ export function TrainerLayout() {
             : { variant: "warning", text: "Awaiting verification" }
       }
       userEmail={user.email ?? ""}
+      avatarUrl={isAdminViewer ? null : trainerRecord?.profilePhoto ?? null}
       subtitle=""
       nav={nav}
       sidebarCta={null}

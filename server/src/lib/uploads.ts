@@ -39,3 +39,28 @@ export function ensureUploadDirs(): void {
 export function resolveHrdcCertPath(filename: string): string {
   return path.join(HRDC_CERT_UPLOAD_DIR, filename);
 }
+
+const UPLOAD_URL_PREFIXES: Array<{ prefix: string; dir: string }> = [
+  { prefix: "/api/uploads/company-photos/", dir: COMPANY_PROFILE_PHOTO_DIR },
+  { prefix: "/api/uploads/payment-proof/", dir: PAYMENT_PROOF_DIR },
+];
+
+/** Best-effort removal of a file previously served under /api/uploads/… */
+export function deleteUploadByPublicUrl(url: string | null | undefined): void {
+  const trimmed = url?.trim();
+  if (!trimmed) return;
+
+  for (const { prefix, dir } of UPLOAD_URL_PREFIXES) {
+    if (!trimmed.startsWith(prefix)) continue;
+    const filename = path.basename(trimmed.slice(prefix.length));
+    const base = path.resolve(dir);
+    const full = path.resolve(base, filename);
+    if (!full.startsWith(base + path.sep)) return;
+    try {
+      if (fs.existsSync(full)) fs.unlinkSync(full);
+    } catch {
+      /* ignore cleanup errors */
+    }
+    return;
+  }
+}

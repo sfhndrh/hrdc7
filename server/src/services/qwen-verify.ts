@@ -1,3 +1,4 @@
+import { dashScopeApiKey, dashScopeMultimodalUrl } from "../config/dashscope.js";
 import type { VerificationResult } from "../db/types.js";
 
 function stripCodeFences(s: string): string {
@@ -44,10 +45,8 @@ export async function verifyHrdcCertificate(
   };
 
   try {
-    const url = process.env.DASHSCOPE_API_URL;
-    const key = process.env.DASHSCOPE_API_KEY;
-    if (!url) throw new Error("DASHSCOPE_API_URL not set");
-    if (!key) throw new Error("DASHSCOPE_API_KEY not set");
+    const url = dashScopeMultimodalUrl();
+    const key = dashScopeApiKey();
 
     const prompt = `You are verifying an HRDC (Human Resource Development Corporation Malaysia)
 trainer certificate. HRDC is a Malaysian government-linked agency that certifies

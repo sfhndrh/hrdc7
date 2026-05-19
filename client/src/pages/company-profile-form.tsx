@@ -2,7 +2,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Link } from "@/components/link";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
@@ -25,7 +25,23 @@ export type CompanyProfileInitial = {
   updatedAt: string;
 };
 
-export function CompanyProfileForm({ initial }: { initial: CompanyProfileInitial }) {
+export function CompanyProfileForm({
+  initial,
+  pageTitle = "Edit profile",
+  backHref = "/client/profile",
+  backLabel = "Back to profile",
+  saveRedirectTo = "/client/profile",
+  headerIcon = <PageHeaderIconBuilding />,
+  afterForm,
+}: {
+  initial: CompanyProfileInitial;
+  pageTitle?: string;
+  backHref?: string;
+  backLabel?: string;
+  saveRedirectTo?: string;
+  headerIcon?: ReactNode;
+  afterForm?: ReactNode;
+}) {
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState(initial.companyName);
   const [regNumber, setRegNumber] = useState(initial.regNumber);
@@ -79,21 +95,21 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfileInitial
       return;
     }
     setMessage("Profile saved.");
-    navigate("/client/profile", { replace: true });
+    navigate(saveRedirectTo, { replace: true });
   }
 
   return (
     <div className="space-y-6">
       <div>
         <Link
-          href="/client/profile"
+          href={backHref}
           className="inline-flex items-center gap-1 text-sm text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
         >
-          <span aria-hidden>←</span> Back to profile
+          <span aria-hidden>←</span> {backLabel}
         </Link>
       </div>
 
-      <DashboardPageHeader title="Edit profile" icon={<PageHeaderIconBuilding />} />
+      <DashboardPageHeader title={pageTitle} icon={headerIcon} />
 
       <ProfilePhotoBanner
         name={bannerName}
@@ -209,6 +225,8 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfileInitial
           </Button>
         </div>
       </form>
+
+      {afterForm}
     </div>
   );
 }

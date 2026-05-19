@@ -6,22 +6,15 @@ function stripCodeFences(s: string): string {
   return out.trim();
 }
 
-function dashScopeBaseUrl(): string {
-  return (
-    process.env.DASHSCOPE_COMPAT_URL?.trim() ||
-    "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  ).replace(/\/$/, "");
-}
+import { dashScopeApiKey, dashScopeCompatBaseUrl } from "../config/dashscope.js";
 
 function qwenModel(): string {
   return process.env.QWEN_MODEL?.trim() || "qwen-plus-latest";
 }
 
 export async function qwenJsonCompletion<T>(prompt: string): Promise<T> {
-  const key = process.env.DASHSCOPE_API_KEY?.trim();
-  if (!key) throw new Error("DASHSCOPE_API_KEY not set");
-
-  const url = `${dashScopeBaseUrl()}/chat/completions`;
+  const key = dashScopeApiKey();
+  const url = `${dashScopeCompatBaseUrl()}/chat/completions`;
   const body = {
     model: qwenModel(),
     temperature: 0.1,

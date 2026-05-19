@@ -8,7 +8,9 @@
     "build": "npm run build -w server && npm run build -w client",
     "start": "npm run start -w server",
     "db:seed": "npm run db:seed -w server",
-    "db:scrape-providers": "npm run db:scrape-providers -w server"
+    "db:scrape-providers": "npm run db:scrape-providers -w server",
+    "db:import-providers-csv": "npm run db:import-providers-csv -w server",
+    "db:dedupe-providers-csv": "npm run db:dedupe-providers-csv -w server"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"

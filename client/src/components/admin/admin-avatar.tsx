@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { apiAssetUrl } from "@/lib/api";
+import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 
 /**
  * Square avatar used inside admin tables. Renders the supplied profile photo
@@ -19,11 +20,12 @@ export function AdminAvatar({
   fallback: string;
 }) {
   const [errored, setErrored] = useState(false);
-  const showImage = !!src && !errored;
+  const photoUrl = normalizeProfilePhotoUrl(src);
+  const showImage = !!photoUrl && !errored;
 
   useEffect(() => {
     setErrored(false);
-  }, [src]);
+  }, [photoUrl]);
 
   return (
     <span
@@ -32,7 +34,7 @@ export function AdminAvatar({
     >
       {showImage ? (
         <img
-          src={apiAssetUrl(src)}
+          src={apiAssetUrl(photoUrl)}
           alt={alt}
           className="h-full w-full object-cover"
           onError={() => setErrored(true)}

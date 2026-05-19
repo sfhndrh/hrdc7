@@ -385,11 +385,15 @@ function EmptyState() {
   return (
     <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-[color:var(--border)] bg-white px-6 text-center shadow-sm">
       <p className="max-w-md text-sm text-[color:var(--text-muted)]">
-        No training provider data in the database yet. Load data once by running{" "}
+        No training provider data in the database yet. Run{" "}
         <code className="rounded bg-[color:var(--surface-muted)] px-1.5 py-0.5 text-xs">
           npm run db:scrape-providers
         </code>{" "}
-        from the project root (requires <code className="text-xs">DASHSCOPE_API_KEY</code>).
+        from the project root to export CSV under <code className="text-xs">data/</code>, then{" "}
+        <code className="rounded bg-[color:var(--surface-muted)] px-1.5 py-0.5 text-xs">
+          npm run db:import-providers-csv
+        </code>{" "}
+        to load it into the database.
       </p>
     </div>
   );

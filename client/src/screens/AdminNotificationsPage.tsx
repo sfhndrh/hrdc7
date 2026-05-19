@@ -12,8 +12,8 @@ import {
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconApprove } from "@/components/dashboard/page-header-icons";
-import { Badge } from "@/components/ui/badge";
 import { Button, cn } from "@/components/ui/button";
+import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 
 type NotificationRow = {
   id: string;
@@ -33,6 +33,15 @@ type NotificationRow = {
 };
 
 type ApprovalSortKey = "name" | "expertise" | "verdict" | "created_at";
+type AiFilterValue = "" | "APPROVE" | "REJECT" | "MANUAL_REVIEW" | "PENDING";
+
+const AI_FILTER_OPTIONS: { value: AiFilterValue; label: string }[] = [
+  { value: "", label: "All AI results" },
+  { value: "APPROVE", label: "Approve" },
+  { value: "REJECT", label: "Reject" },
+  { value: "MANUAL_REVIEW", label: "Review" },
+  { value: "PENDING", label: "Pending" },
+];
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -104,6 +113,8 @@ export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
+  const [expertiseFilter, setExpertiseFilter] = useState("");
+  const [aiFilter, setAiFilter] = useState<AiFilterValue>("");
   const [sort, setSort] = useState<{ key: ApprovalSortKey; dir: AdminSortDir }>({
     key: "created_at",
     dir: "desc",
@@ -133,16 +144,43 @@ export default function AdminNotificationsPage() {
     );
   }, []);
 
+  const expertiseOptions = useMemo(() => {
+    const tags = new Set<string>();
+    for (const n of rows ?? []) {
+      const label = n.trainerExpertiseLabel;
+      if (!label || label === "—") continue;
+      for (const part of label.split(",")) {
+        const t = part.trim();
+        if (t) tags.add(t);
+      }
+    }
+    return [...tags].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [rows]);
+
   const filteredSorted = useMemo(() => {
     const list = rows ?? [];
     const needle = q.trim().toLowerCase();
-    const filtered = needle
-      ? list.filter((n) => {
-          const name = displayName(n).toLowerCase();
-          const exp = (n.trainerExpertiseLabel ?? "").toLowerCase();
-          return name.includes(needle) || exp.includes(needle) || (n.body ?? "").toLowerCase().includes(needle);
-        })
-      : list;
+    let filtered = list;
+    if (needle) {
+      filtered = filtered.filter((n) => {
+        const name = displayName(n).toLowerCase();
+        const exp = (n.trainerExpertiseLabel ?? "").toLowerCase();
+        return name.includes(needle) || exp.includes(needle) || (n.body ?? "").toLowerCase().includes(needle);
+      });
+    }
+    if (expertiseFilter) {
+      const tag = expertiseFilter.toLowerCase();
+      filtered = filtered.filter((n) =>
+        (n.trainerExpertiseLabel ?? "").toLowerCase().includes(tag),
+      );
+    }
+    if (aiFilter) {
+      filtered = filtered.filter((n) => {
+        const rec = parseRecommendation(n.body ?? "");
+        if (aiFilter === "PENDING") return !rec;
+        return rec === aiFilter;
+      });
+    }
 
     const { key: sortKey, dir: sortDir } = sort;
     const out = [...filtered];
@@ -176,7 +214,7 @@ export default function AdminNotificationsPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return out;
-  }, [rows, q, sort]);
+  }, [rows, q, expertiseFilter, aiFilter, sort]);
 
   async function markAllRead() {
     setBusy(true);
@@ -237,7 +275,6 @@ export default function AdminNotificationsPage() {
         icon={<PageHeaderIconApprove />}
         right={
           <div className="flex items-center gap-2">
-            {unreadCount ? <Badge tone="yellow">{unreadCount} unread</Badge> : null}
             <Button
               type="button"
               variant="outline"
@@ -265,19 +302,38 @@ export default function AdminNotificationsPage() {
 
       <section
         className="rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-sm"
-        aria-label="Search"
+        aria-label="Search and filters"
       >
-        <label className="relative block">
-          <span className="sr-only">Search approvals</span>
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or expertise…"
-            className="w-full rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
-          />
-        </label>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search approvals</span>
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search by name or expertise…"
+              className="w-full rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 lg:shrink-0">
+            <FilterSelect
+              label="Expertise"
+              value={expertiseFilter}
+              onChange={setExpertiseFilter}
+              options={[
+                { value: "", label: "All expertise" },
+                ...expertiseOptions.map((tag) => ({ value: tag, label: tag })),
+              ]}
+            />
+            <FilterSelect
+              label="AI result"
+              value={aiFilter}
+              onChange={(v) => setAiFilter(v as AiFilterValue)}
+              options={AI_FILTER_OPTIONS}
+            />
+          </div>
+        </div>
       </section>
 
       <section
@@ -355,13 +411,14 @@ export default function AdminNotificationsPage() {
                         interactive &&
                           "cursor-pointer hover:bg-sky-50/40 focus-visible:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
                         busy && "cursor-wait opacity-70",
-                        unread && "bg-orange-50/25",
+                        unread &&
+                          "border-l-4 border-l-amber-400 bg-amber-50 hover:bg-amber-50/90",
                       )}
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-start gap-3">
                           <AdminAvatar
-                            src={n.trainerProfilePhoto ?? null}
+                            src={normalizeProfilePhotoUrl(n.trainerProfilePhoto)}
                             alt={name}
                             fallback={initialsFromName(name)}
                           />
@@ -378,14 +435,7 @@ export default function AdminNotificationsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-4 align-middle">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <AiVerdictPill rec={rec} />
-                          {unread ? (
-                            <Badge tone="yellow" className="text-[10px]">
-                              Unread
-                            </Badge>
-                          ) : null}
-                        </div>
+                        <AiVerdictPill rec={rec} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 align-middle text-[color:var(--text-muted)]">
                         {formatDate(n.created_at)}
@@ -416,6 +466,36 @@ export default function AdminNotificationsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="flex min-w-[10rem] flex-col gap-1 text-xs font-medium text-[color:var(--text-muted)]">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className="rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-3 pr-8 text-sm text-[color:var(--text)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+      >
+        {options.map((opt) => (
+          <option key={opt.value || "__all"} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

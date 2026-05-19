@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/admin-accounts-chrome";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { cn } from "@/components/ui/button";
+import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 
 export type AdminCompanyRow = {
   id: string;
@@ -175,7 +176,7 @@ export function AdminCompaniesView({
                   <td className="px-4 py-4 align-middle">
                     <div className="flex items-start gap-3">
                       <AdminAvatar
-                        src={c.profilePhoto ?? null}
+                        src={normalizeProfilePhotoUrl(c.profilePhoto)}
                         alt={c.companyName}
                         fallback={initialsFromCompanyName(c.companyName)}
                       />

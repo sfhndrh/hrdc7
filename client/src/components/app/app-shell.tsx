@@ -7,6 +7,8 @@ export type NavItem = {
   label: string;
   icon?: React.ReactNode;
   badgeText?: string;
+  /** Small unread indicator (dot) instead of a text badge */
+  badgeDot?: boolean;
   isActive?: (pathname: string) => boolean;
   disabled?: boolean;
   hint?: string;
