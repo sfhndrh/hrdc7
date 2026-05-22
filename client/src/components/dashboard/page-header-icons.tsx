@@ -57,6 +57,14 @@ export function PageHeaderIconSettings({ className }: { className?: string }) {
   );
 }
 
+export function PageHeaderIconInbox({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={cn(iconClass, className)} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 export function PageHeaderIconSearch({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={cn(iconClass, className)} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

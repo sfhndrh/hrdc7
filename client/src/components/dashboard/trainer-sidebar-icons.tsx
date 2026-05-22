@@ -41,6 +41,17 @@ export function TrainerNavIconInbox({ className = "h-5 w-5" }: { className?: str
   );
 }
 
+/** Matches admin `AdminNavIconCourses` / TP `TpNavIconCourses` (training programme clipboard). */
+export function TrainerNavIconCourses({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v12H4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4h8v2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11h8M8 15h5" />
+    </svg>
+  );
+}
+
 export function TrainerNavIconCalendar({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

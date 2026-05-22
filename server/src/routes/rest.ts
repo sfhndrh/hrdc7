@@ -41,6 +41,21 @@ import {
 import { formatAdminTableDate } from "../lib/format-datetime.js";
 import { asStringArray } from "../lib/jsonArrays.js";
 import { DELIVERY_MODE_OPTIONS } from "../lib/trainer-delivery-modes.js";
+import { buildCourseInquiryMessage } from "../lib/course-message-attachment.js";
+import {
+  assertClientConversationForClient,
+  getClientConversationMessages,
+  getOrCreateClientConversation,
+  listClientConversationsForClient,
+  sendClientMessage,
+} from "../lib/tp-client-messages.js";
+import {
+  assertConversationForTrainer,
+  getConversationMessages,
+  getOrCreateConversation,
+  listConversationsForTrainer,
+  sendMessage,
+} from "../lib/tp-trainer-messages.js";
 import { asCount, execute, queryAll, queryOne, withTransaction } from "../db/query.js";
 import { newId } from "../db/ids.js";
 import type { SubStatus } from "../db/types.js";
@@ -922,6 +937,366 @@ restRouter.get("/trainer/verification", requireAuth, async (req, res) => {
   res.json(serializeAiVerificationRow(verification));
 });
 
+const trainerMessageBodySchema = z.object({
+  body: z.string().trim().min(1).max(4000),
+});
+
+const trainerOpenConversationSchema = z.object({
+  tpOrgId: z.string().min(1),
+  courseId: z.string().min(1).optional(),
+  intro: z.string().trim().min(1).max(500).optional(),
+});
+
+const clientMessageBodySchema = z.object({
+  body: z.string().trim().min(1).max(4000),
+});
+
+const clientOpenConversationSchema = z.object({
+  tpOrgId: z.string().min(1),
+  courseId: z.string().min(1).optional(),
+  intro: z.string().trim().min(1).max(500).optional(),
+});
+
+async function requireTrainerRecord(
+  userId: string,
+  res: import("express").Response,
+): Promise<{ id: string; status: string } | null> {
+  const row = await queryOne<{ id: string; status: string }>(
+    `SELECT "id", "status" FROM "Trainer" WHERE "userId" = ?`,
+    [userId],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Trainer profile not found" });
+    return null;
+  }
+  return row;
+}
+
+async function requireClientRecord(
+  userId: string,
+  res: import("express").Response,
+): Promise<{ id: string } | null> {
+  const row = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "Client" WHERE "userId" = ?`,
+    [userId],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Client profile not found" });
+    return null;
+  }
+  return row;
+}
+
+restRouter.get("/trainer/messages", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER" && u.role !== "ADMIN") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (u.role === "ADMIN") {
+    res.json({ conversations: [] });
+    return;
+  }
+  if (await respondIfTrainerSuspended(u.sub, res)) return;
+  const trainer = await requireTrainerRecord(u.sub, res);
+  if (!trainer) return;
+  if (trainer.status !== "APPROVED") {
+    res.status(403).json({ error: "Available after your profile is approved" });
+    return;
+  }
+  const conversations = await listConversationsForTrainer(trainer.id);
+  res.json({ conversations });
+});
+
+restRouter.get("/trainer/messages/:conversationId", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfTrainerSuspended(u.sub, res)) return;
+  const trainer = await requireTrainerRecord(u.sub, res);
+  if (!trainer) return;
+  const conv = await assertConversationForTrainer(req.params.conversationId, trainer.id);
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const org = await queryOne<{ id: string; companyName: string }>(
+    `SELECT "id", "companyName" FROM "TpOrganization" WHERE "id" = ?`,
+    [conv.tpOrgId],
+  );
+  const messages = await getConversationMessages(conv.id);
+  res.json({
+    conversation: {
+      id: conv.id,
+      tpOrgId: conv.tpOrgId,
+      tpCompanyName: org?.companyName ?? "Training provider",
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+restRouter.post("/trainer/messages/open", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfTrainerSuspended(u.sub, res)) return;
+  const trainer = await requireTrainerRecord(u.sub, res);
+  if (!trainer) return;
+  if (trainer.status !== "APPROVED") {
+    res.status(403).json({ error: "Available after your profile is approved" });
+    return;
+  }
+  const parsed = trainerOpenConversationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const org = await queryOne<{ id: string; companyName: string; status: string }>(
+    `SELECT "id", "companyName", "status" FROM "TpOrganization" WHERE "id" = ?`,
+    [parsed.data.tpOrgId],
+  );
+  if (!org || org.status !== "APPROVED") {
+    res.status(404).json({ error: "Training provider not found" });
+    return;
+  }
+  const conversationId = await getOrCreateConversation(org.id, trainer.id);
+  let messages = await getConversationMessages(conversationId);
+
+  if (parsed.data.courseId && messages.length === 0) {
+    const courseRow = await queryOne<Record<string, unknown>>(
+      `SELECT c."id", c."title", c."courseCode", c."category", c."duration", c."deliveryMode",
+              c."hrdcClaimable", c."courseFee", c."language", c."skillLevel", c."trainingLocation",
+              o."companyName" AS "providerName"
+       FROM "TpCourse" c
+       JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+       WHERE c."id" = ? AND c."tpOrgId" = ? AND c."isPublished" = true AND o."status" = 'APPROVED'`,
+      [parsed.data.courseId, org.id],
+    );
+    if (courseRow) {
+      const attachmentBody = buildCourseInquiryMessage(
+        {
+          id: String(courseRow.id),
+          title: String(courseRow.title ?? ""),
+          courseCode: String(courseRow.courseCode ?? ""),
+          category: String(courseRow.category ?? ""),
+          providerName: String(courseRow.providerName ?? org.companyName),
+          duration: String(courseRow.duration ?? ""),
+          deliveryMode: String(courseRow.deliveryMode ?? ""),
+          hrdcClaimable: String(courseRow.hrdcClaimable ?? ""),
+          courseFee: Number(courseRow.courseFee ?? 0),
+          language: String(courseRow.language ?? ""),
+          skillLevel: String(courseRow.skillLevel ?? ""),
+          trainingLocation:
+            courseRow.trainingLocation != null ? String(courseRow.trainingLocation) : null,
+        },
+        parsed.data.intro,
+      );
+      await sendMessage(conversationId, "TRAINER", attachmentBody);
+      messages = await getConversationMessages(conversationId);
+    }
+  }
+
+  res.json({
+    conversation: {
+      id: conversationId,
+      tpOrgId: org.id,
+      tpCompanyName: org.companyName,
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+restRouter.post("/trainer/messages/:conversationId/send", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "TRAINER") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfTrainerSuspended(u.sub, res)) return;
+  const trainer = await requireTrainerRecord(u.sub, res);
+  if (!trainer) return;
+  if (trainer.status !== "APPROVED") {
+    res.status(403).json({ error: "Available after your profile is approved" });
+    return;
+  }
+  const parsed = trainerMessageBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const conv = await assertConversationForTrainer(req.params.conversationId, trainer.id);
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const message = await sendMessage(conv.id, "TRAINER", parsed.data.body);
+  res.status(201).json({ message });
+});
+
+// --- Client ↔ training provider messages ---
+
+restRouter.get("/client/messages", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "CLIENT" && u.role !== "ADMIN") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (u.role === "ADMIN") {
+    res.json({ conversations: [] });
+    return;
+  }
+  if (await respondIfClientSuspended(u.sub, res)) return;
+  const client = await requireClientRecord(u.sub, res);
+  if (!client) return;
+  const conversations = await listClientConversationsForClient(client.id);
+  res.json({ conversations });
+});
+
+restRouter.get("/client/messages/:conversationId", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "CLIENT") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfClientSuspended(u.sub, res)) return;
+  const client = await requireClientRecord(u.sub, res);
+  if (!client) return;
+  const conv = await assertClientConversationForClient(req.params.conversationId, client.id);
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const org = await queryOne<{ id: string; companyName: string }>(
+    `SELECT "id", "companyName" FROM "TpOrganization" WHERE "id" = ?`,
+    [conv.tpOrgId],
+  );
+  const messages = await getClientConversationMessages(conv.id);
+  res.json({
+    conversation: {
+      id: conv.id,
+      tpOrgId: conv.tpOrgId,
+      tpCompanyName: org?.companyName ?? "Training provider",
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+restRouter.post("/client/messages/open", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "CLIENT") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfClientSuspended(u.sub, res)) return;
+  const client = await requireClientRecord(u.sub, res);
+  if (!client) return;
+  const parsed = clientOpenConversationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const org = await queryOne<{ id: string; companyName: string; status: string }>(
+    `SELECT "id", "companyName", "status" FROM "TpOrganization" WHERE "id" = ?`,
+    [parsed.data.tpOrgId],
+  );
+  if (!org || org.status !== "APPROVED") {
+    res.status(404).json({ error: "Training provider not found" });
+    return;
+  }
+  const conversationId = await getOrCreateClientConversation(org.id, client.id);
+  let messages = await getClientConversationMessages(conversationId);
+
+  if (parsed.data.courseId && messages.length === 0) {
+    const courseRow = await queryOne<Record<string, unknown>>(
+      `SELECT c."id", c."title", c."courseCode", c."category", c."duration", c."deliveryMode",
+              c."hrdcClaimable", c."courseFee", c."language", c."skillLevel", c."trainingLocation",
+              o."companyName" AS "providerName"
+       FROM "TpCourse" c
+       JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+       WHERE c."id" = ? AND c."tpOrgId" = ? AND c."isPublished" = true AND o."status" = 'APPROVED'`,
+      [parsed.data.courseId, org.id],
+    );
+    if (courseRow) {
+      const attachmentBody = buildCourseInquiryMessage(
+        {
+          id: String(courseRow.id),
+          title: String(courseRow.title ?? ""),
+          courseCode: String(courseRow.courseCode ?? ""),
+          category: String(courseRow.category ?? ""),
+          providerName: String(courseRow.providerName ?? org.companyName),
+          duration: String(courseRow.duration ?? ""),
+          deliveryMode: String(courseRow.deliveryMode ?? ""),
+          hrdcClaimable: String(courseRow.hrdcClaimable ?? ""),
+          courseFee: Number(courseRow.courseFee ?? 0),
+          language: String(courseRow.language ?? ""),
+          skillLevel: String(courseRow.skillLevel ?? ""),
+          trainingLocation:
+            courseRow.trainingLocation != null ? String(courseRow.trainingLocation) : null,
+        },
+        parsed.data.intro,
+      );
+      await sendClientMessage(conversationId, "CLIENT", attachmentBody);
+      messages = await getClientConversationMessages(conversationId);
+    }
+  }
+
+  res.json({
+    conversation: {
+      id: conversationId,
+      tpOrgId: org.id,
+      tpCompanyName: org.companyName,
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+restRouter.post("/client/messages/:conversationId/send", requireAuth, async (req, res) => {
+  const u = req.authUser!;
+  if (u.role !== "CLIENT") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (await respondIfClientSuspended(u.sub, res)) return;
+  const client = await requireClientRecord(u.sub, res);
+  if (!client) return;
+  const parsed = clientMessageBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const conv = await assertClientConversationForClient(req.params.conversationId, client.id);
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const message = await sendClientMessage(conv.id, "CLIENT", parsed.data.body);
+  res.status(201).json({ message });
+});
+
 restRouter.get("/client/me", requireAuth, async (req, res) => {
   const u = req.authUser!;
   if (u.role !== "CLIENT" && u.role !== "ADMIN") {
@@ -1452,6 +1827,37 @@ restRouter.get("/client/courses", requireRoles(["CLIENT", "ADMIN"]), async (_req
 });
 
 restRouter.get("/client/courses/:id", requireRoles(["CLIENT", "ADMIN"]), async (req, res) => {
+  const row = await queryOne<Record<string, unknown>>(
+    `SELECT c.*, o."companyName" AS "providerName", o."id" AS "tpOrgId"
+     FROM "TpCourse" c
+     JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+     WHERE c."id" = ? AND c."isPublished" = true AND o."status" = 'APPROVED'`,
+    [req.params.id],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ course: serializeClientBrowseCourse(row) });
+});
+
+/** Published courses from approved training providers for trainer browse. */
+restRouter.get("/trainer/courses", requireRoles(["TRAINER", "ADMIN"]), async (req, res) => {
+  const u = req.authUser!;
+  if (u.role === "TRAINER" && (await respondIfTrainerSuspended(u.sub, res))) return;
+  const rows = await queryAll<Record<string, unknown>>(
+    `SELECT c.*, o."companyName" AS "providerName", o."id" AS "tpOrgId"
+     FROM "TpCourse" c
+     JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+     WHERE c."isPublished" = true AND o."status" = 'APPROVED'
+     ORDER BY c."updatedAt" DESC`,
+  );
+  res.json({ courses: rows.map(serializeClientBrowseCourse) });
+});
+
+restRouter.get("/trainer/courses/:id", requireRoles(["TRAINER", "ADMIN"]), async (req, res) => {
+  const u = req.authUser!;
+  if (u.role === "TRAINER" && (await respondIfTrainerSuspended(u.sub, res))) return;
   const row = await queryOne<Record<string, unknown>>(
     `SELECT c.*, o."companyName" AS "providerName", o."id" AS "tpOrgId"
      FROM "TpCourse" c

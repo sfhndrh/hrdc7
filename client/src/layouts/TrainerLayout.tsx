@@ -10,6 +10,7 @@ import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 import {
   TrainerNavIconCalendar,
   TrainerNavIconCertificate,
+  TrainerNavIconCourses,
   TrainerNavIconHome,
   TrainerNavIconInbox,
   TrainerNavIconProfile,
@@ -128,6 +129,7 @@ export function TrainerLayout() {
 
   const nav = [
     { href: "/trainer/dashboard", label: "Dashboard", icon: <TrainerNavIconHome /> },
+    { href: "/trainer/courses", label: "Courses", icon: <TrainerNavIconCourses /> },
     { href: "/trainer/profile", label: "Profile", icon: <TrainerNavIconProfile /> },
     {
       href: "/trainer/certificate",

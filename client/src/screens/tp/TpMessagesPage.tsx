@@ -9,20 +9,14 @@ import {
   TpTrainerMessagesPanel,
   type StartPeerState,
 } from "@/components/messaging/tp-trainer-messages-panel";
+import { useTpOutlet } from "@/hooks/use-tp-outlet";
 
 type MessagesLocationState = {
   startPeer?: StartPeerState;
 };
 
-function InboxIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-white" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-export default function ClientMessagesPage() {
+export default function TpMessagesPage() {
+  const { approved } = useTpOutlet();
   const location = useLocation();
   const navigate = useNavigate();
   const startPeer = useMemo(() => {
@@ -30,17 +24,25 @@ export default function ClientMessagesPage() {
     return s?.startPeer ?? null;
   }, [location.state]);
 
+  if (!approved) {
+    return (
+      <div className="p-6 text-sm text-[color:var(--text-muted)]">
+        Messaging unlocks after your organization is approved.
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <DashboardPageHeader
         title="Messages"
-        description="Chat with training providers about courses"
-        icon={<InboxIcon />}
+        description="Chat with certified trainers on the platform"
+        icon={<PageHeaderIconInbox />}
       />
       <TpTrainerMessagesPanel
-        viewer="client"
+        viewer="tp"
         startPeer={startPeer}
-        onStartPeerHandled={() => navigate("/client/messages", { replace: true, state: {} })}
+        onStartPeerHandled={() => navigate("/tp/messages", { replace: true, state: {} })}
       />
     </div>
   );

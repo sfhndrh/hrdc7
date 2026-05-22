@@ -9,8 +9,10 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import {
   TpNavIconCalendar,
   TpNavIconCourses,
+  TpNavIconMessages,
   TpNavIconProfile,
   TpNavIconRatings,
+  TpNavIconTrainers,
 } from "@/components/tp/tp-nav-icons";
 import { tpIsApproved, type TpOrg } from "@/lib/tp-platform";
 
@@ -107,6 +109,20 @@ export function TpLayout() {
       href: "/tp/courses",
       label: "Courses",
       icon: <TpNavIconCourses />,
+      disabled: !approved,
+      hint: "Available after admin approval",
+    },
+    {
+      href: "/tp/trainers",
+      label: "Trainers",
+      icon: <TpNavIconTrainers />,
+      disabled: !approved,
+      hint: "Available after admin approval",
+    },
+    {
+      href: "/tp/messages",
+      label: "Messages",
+      icon: <TpNavIconMessages />,
       disabled: !approved,
       hint: "Available after admin approval",
     },

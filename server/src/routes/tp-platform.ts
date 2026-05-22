@@ -23,6 +23,20 @@ import {
   TP_VERIFICATION_DIR,
 } from "../lib/uploads.js";
 import { extractTpOrgDocuments } from "../services/tp-doc-extract.js";
+import {
+  assertClientConversationForTp,
+  getClientConversationMessages,
+  listClientConversationsForTp,
+  sendClientMessage,
+} from "../lib/tp-client-messages.js";
+import {
+  assertApprovedTrainer,
+  assertConversationForTp,
+  getConversationMessages,
+  getOrCreateConversation,
+  listConversationsForTp,
+  sendMessage,
+} from "../lib/tp-trainer-messages.js";
 
 export const tpPlatformRouter = Router();
 
@@ -526,6 +540,110 @@ function serializeCourse(row: Record<string, unknown>) {
 
 // --- Trainers ---
 
+function asStringArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String);
+  try {
+    const parsed = JSON.parse(String(raw ?? "[]"));
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+tpPlatformRouter.get("/tp/trainers/browse", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const rows = await queryAll<{
+    id: string;
+    fullName: string;
+    expertise: string;
+    yearsExp: number;
+    languages: string | null;
+    stateOrLocation: string | null;
+    deliveryModes: string;
+    profilePhoto: string | null;
+    email: string;
+  }>(
+    `SELECT t."id", t."fullName", t."expertise", t."yearsExp", t."languages",
+            t."stateOrLocation", t."deliveryModes", t."profilePhoto",
+            u."email"
+     FROM "Trainer" t
+     JOIN "User" u ON u."id" = t."userId"
+     WHERE t."status" = 'APPROVED'
+       AND COALESCE(t."accountStatus", 'ACTIVE') <> 'SUSPENDED'
+     ORDER BY t."fullName" ASC`,
+  );
+  res.json({
+    trainers: rows.map((t) => {
+      const expertise = asStringArray(JSON.parse(t.expertise || "[]"));
+      const delivery = asStringArray(JSON.parse(t.deliveryModes || "[]"));
+      return {
+        id: t.id,
+        fullName: t.fullName,
+        email: t.email,
+        title: expertise.slice(0, 3).join(", ") || "Certified trainer",
+        location: t.stateOrLocation ?? "",
+        languages: t.languages ?? "",
+        yearsExp: t.yearsExp,
+        deliveryModes: delivery.join(", "),
+        profilePhoto: t.profilePhoto,
+        topics: expertise,
+      };
+    }),
+  });
+});
+
+tpPlatformRouter.get("/tp/trainers/:id", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const row = await queryOne<Record<string, unknown>>(
+    `SELECT t.*, u."email" AS "userEmail"
+     FROM "Trainer" t
+     JOIN "User" u ON u."id" = t."userId"
+     WHERE t."id" = ?
+       AND t."status" = 'APPROVED'
+       AND COALESCE(t."accountStatus", 'ACTIVE') <> 'SUSPENDED'`,
+    [req.params.id],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const expertise = asStringArray(JSON.parse(String(row.expertise || "[]")));
+  const delivery = asStringArray(JSON.parse(String(row.deliveryModes || "[]")));
+  const travelLocations = asStringArray(JSON.parse(String(row.travelLocations || "[]")));
+  res.json({
+    trainer: {
+      id: row.id,
+      fullName: row.fullName,
+      email: row.userEmail,
+      phone: row.phone,
+      bio: row.bio,
+      expertise,
+      yearsExp: row.yearsExp,
+      linkedIn: row.linkedIn,
+      portfolioUrl: row.portfolioUrl,
+      profilePhoto: row.profilePhoto,
+      stateOrLocation: row.stateOrLocation,
+      languages: row.languages,
+      deliveryModes: delivery,
+      willingToTravel: row.willingToTravel,
+      travelLocations,
+      certFileUrl: row.certFileUrl,
+      approvedAt: row.approvedAt,
+      createdAt: row.createdAt,
+    },
+  });
+});
+
 tpPlatformRouter.get("/tp/trainers", requireAuth, async (req, res) => {
   const org = await requireTpOrg(req, res);
   if (!org) return;
@@ -596,6 +714,155 @@ tpPlatformRouter.delete("/tp/trainers/link/:trainerId", requireAuth, async (req,
     req.params.trainerId,
   ]);
   res.json({ ok: true });
+});
+
+// --- Messages (training provider ↔ trainer) ---
+
+const tpMessageBodySchema = z.object({
+  body: z.string().trim().min(1).max(4000),
+});
+
+const tpOpenConversationSchema = z.object({
+  trainerId: z.string().min(1),
+});
+
+tpPlatformRouter.get("/tp/messages", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const trainerConvs = await listConversationsForTp(String(org.id));
+  const clientConvs = await listClientConversationsForTp(String(org.id));
+  const conversations = [
+    ...trainerConvs.map((c) => ({ ...c, channel: "trainer" as const })),
+    ...clientConvs.map((c) => ({ ...c, channel: "client" as const })),
+  ].sort(
+    (a, b) => new Date(String(b.updatedAt)).getTime() - new Date(String(a.updatedAt)).getTime(),
+  );
+  res.json({ conversations });
+});
+
+tpPlatformRouter.get("/tp/messages/:conversationId", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const conv = await assertConversationForTp(req.params.conversationId, String(org.id));
+  if (conv) {
+    const trainer = await assertApprovedTrainer(conv.trainerId);
+    const messages = await getConversationMessages(conv.id);
+    res.json({
+      conversation: {
+        id: conv.id,
+        channel: "trainer",
+        trainerId: conv.trainerId,
+        trainerName: trainer?.fullName ?? "Trainer",
+      },
+      messages: messages.map((m) => ({
+        id: String(m.id),
+        senderRole: String(m.senderRole),
+        body: String(m.body),
+        sentAt: String(m.createdAt),
+      })),
+    });
+    return;
+  }
+  const clientConv = await assertClientConversationForTp(
+    req.params.conversationId,
+    String(org.id),
+  );
+  if (!clientConv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const client = await queryOne<{ companyName: string; contactName: string }>(
+    `SELECT "companyName", "contactName" FROM "Client" WHERE "id" = ?`,
+    [clientConv.clientId],
+  );
+  const messages = await getClientConversationMessages(clientConv.id);
+  res.json({
+    conversation: {
+      id: clientConv.id,
+      channel: "client",
+      clientId: clientConv.clientId,
+      clientCompanyName: client?.companyName ?? "Employer",
+      clientContactName: client?.contactName ?? "",
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+tpPlatformRouter.post("/tp/messages/open", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const parsed = tpOpenConversationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const trainer = await assertApprovedTrainer(parsed.data.trainerId);
+  if (!trainer || trainer.status !== "APPROVED") {
+    res.status(404).json({ error: "Trainer not found" });
+    return;
+  }
+  const conversationId = await getOrCreateConversation(String(org.id), trainer.id);
+  const messages = await getConversationMessages(conversationId);
+  res.json({
+    conversation: {
+      id: conversationId,
+      trainerId: trainer.id,
+      trainerName: trainer.fullName,
+    },
+    messages: messages.map((m) => ({
+      id: String(m.id),
+      senderRole: String(m.senderRole),
+      body: String(m.body),
+      sentAt: String(m.createdAt),
+    })),
+  });
+});
+
+tpPlatformRouter.post("/tp/messages/:conversationId/send", requireAuth, async (req, res) => {
+  const org = await requireTpOrg(req, res);
+  if (!org) return;
+  if (!tpIsApproved(String(org.status))) {
+    res.status(403).json({ error: "Available after admin approval" });
+    return;
+  }
+  const parsed = tpMessageBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid payload" });
+    return;
+  }
+  const conv = await assertConversationForTp(req.params.conversationId, String(org.id));
+  if (conv) {
+    const message = await sendMessage(conv.id, "TP", parsed.data.body);
+    res.status(201).json({ message });
+    return;
+  }
+  const clientConv = await assertClientConversationForTp(
+    req.params.conversationId,
+    String(org.id),
+  );
+  if (!clientConv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  const message = await sendClientMessage(clientConv.id, "TP", parsed.data.body);
+  res.status(201).json({ message });
 });
 
 // --- Employer requests ---

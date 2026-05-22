@@ -278,6 +278,46 @@ CREATE TABLE IF NOT EXISTS "TpTrainerLink" (
   UNIQUE("tpOrgId", "trainerId")
 );
 
+CREATE TABLE IF NOT EXISTS "TpTrainerConversation" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "tpOrgId" TEXT NOT NULL REFERENCES "TpOrganization"("id") ON DELETE CASCADE,
+  "trainerId" TEXT NOT NULL REFERENCES "Trainer"("id") ON DELETE CASCADE,
+  "createdAt" TEXT NOT NULL,
+  "updatedAt" TEXT NOT NULL,
+  UNIQUE("tpOrgId", "trainerId")
+);
+CREATE INDEX IF NOT EXISTS "TpTrainerConversation_tpOrgId_idx" ON "TpTrainerConversation"("tpOrgId");
+CREATE INDEX IF NOT EXISTS "TpTrainerConversation_trainerId_idx" ON "TpTrainerConversation"("trainerId");
+
+CREATE TABLE IF NOT EXISTS "TpTrainerMessage" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "conversationId" TEXT NOT NULL REFERENCES "TpTrainerConversation"("id") ON DELETE CASCADE,
+  "senderRole" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "createdAt" TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "TpTrainerMessage_conversationId_idx" ON "TpTrainerMessage"("conversationId");
+
+CREATE TABLE IF NOT EXISTS "TpClientConversation" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "tpOrgId" TEXT NOT NULL REFERENCES "TpOrganization"("id") ON DELETE CASCADE,
+  "clientId" TEXT NOT NULL REFERENCES "Client"("id") ON DELETE CASCADE,
+  "createdAt" TEXT NOT NULL,
+  "updatedAt" TEXT NOT NULL,
+  UNIQUE("tpOrgId", "clientId")
+);
+CREATE INDEX IF NOT EXISTS "TpClientConversation_tpOrgId_idx" ON "TpClientConversation"("tpOrgId");
+CREATE INDEX IF NOT EXISTS "TpClientConversation_clientId_idx" ON "TpClientConversation"("clientId");
+
+CREATE TABLE IF NOT EXISTS "TpClientMessage" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "conversationId" TEXT NOT NULL REFERENCES "TpClientConversation"("id") ON DELETE CASCADE,
+  "senderRole" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "createdAt" TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "TpClientMessage_conversationId_idx" ON "TpClientMessage"("conversationId");
+
 CREATE TABLE IF NOT EXISTS "TpEmployerRequest" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "tpOrgId" TEXT NOT NULL REFERENCES "TpOrganization"("id") ON DELETE CASCADE,

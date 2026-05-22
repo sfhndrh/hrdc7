@@ -45,8 +45,13 @@ import TpCourseCreatePage from "@/screens/tp/TpCourseCreatePage";
 import TpCourseDetailPage from "@/screens/tp/TpCourseDetailPage";
 import TpCourseEditPage from "@/screens/tp/TpCourseEditPage";
 import TpScheduleCreatePage from "@/screens/tp/TpScheduleCreatePage";
+import TpTrainersPage from "@/screens/tp/TpTrainersPage";
+import TpTrainerDetailPage from "@/screens/tp/TpTrainerDetailPage";
+import TpMessagesPage from "@/screens/tp/TpMessagesPage";
 import TrainerCalendarPage from "@/screens/trainer-calendar/page";
 import TrainerCertificatePage from "@/screens/trainer-certificate/page";
+import TrainerCourseDetailPage from "@/screens/TrainerCourseDetailPage";
+import TrainerCoursesPage from "@/screens/TrainerCoursesPage";
 import TrainerDashboardPage from "@/screens/TrainerDashboardPage";
 import TrainerMessagesPage from "@/screens/trainer-messages/page";
 import TrainerProfileEditPage from "@/screens/TrainerProfileEditPage";
@@ -88,6 +93,8 @@ export default function App() {
       <Route path="/trainer" element={<TrainerLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<TrainerDashboardPage />} />
+        <Route path="courses" element={<TrainerCoursesPage />} />
+        <Route path="courses/:id" element={<TrainerCourseDetailPage />} />
         <Route path="profile" element={<TrainerProfilePage />} />
         <Route path="profile/edit" element={<TrainerProfileEditPage />} />
         <Route path="certificate" element={<TrainerCertificatePage />} />
@@ -105,6 +112,9 @@ export default function App() {
         <Route path="courses/new" element={<TpCourseCreatePage />} />
         <Route path="courses/:id/edit" element={<TpCourseEditPage />} />
         <Route path="courses/:id" element={<TpCourseDetailPage />} />
+        <Route path="trainers" element={<TpTrainersPage />} />
+        <Route path="trainers/:id" element={<TpTrainerDetailPage />} />
+        <Route path="messages" element={<TpMessagesPage />} />
         <Route path="schedules" element={<TpSchedulesPage />} />
         <Route path="schedules/new" element={<TpScheduleCreatePage />} />
         <Route path="ratings" element={<TpRatingsPage />} />
