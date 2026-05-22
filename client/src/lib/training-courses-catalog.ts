@@ -192,14 +192,29 @@ export function mergeCourseCatalogs(
   return categories;
 }
 
+export type CoursesClaimableFilter = "all" | "claimable" | "not_claimable";
+
 export function filterCoursesCatalog(
   categories: CatalogCategory[],
   query: string,
+  claimableFilter: CoursesClaimableFilter = "all",
 ): CatalogCategory[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return categories;
+  let result = categories;
 
-  return categories
+  if (claimableFilter !== "all") {
+    const wantClaimable = claimableFilter === "claimable";
+    result = result
+      .map((category) => ({
+        ...category,
+        courses: category.courses.filter((course) => course.claimable === wantClaimable),
+      }))
+      .filter((category) => category.courses.length > 0);
+  }
+
+  const needle = query.trim().toLowerCase();
+  if (!needle) return result;
+
+  return result
     .map((category) => ({
       ...category,
       courses: category.courses.filter((course) => {

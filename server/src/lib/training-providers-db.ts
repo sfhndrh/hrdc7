@@ -1,5 +1,6 @@
 import { newId } from "../db/ids.js";
 import { asCount, execute, queryAll, queryOne, withTransaction } from "../db/query.js";
+import { trainingProviderMergeKey } from "./training-provider-keys.js";
 import type {
   ProvidersData,
   TrainingCourse,
@@ -115,6 +116,180 @@ export async function getTrainingProvidersFromDb(): Promise<ProvidersData | null
   };
 }
 
+function providerRowForKey(row: {
+  id: string;
+  name: string;
+  registration_no: string;
+  email: string;
+}): TrainingProvider {
+  return {
+    name: row.name,
+    registrationNo: row.registration_no,
+    status: "",
+    email: row.email,
+    phone: "",
+    fax: "",
+    website: "",
+    address: "",
+    state: "",
+    description: "",
+    courses: [],
+    detailUrl: "",
+    scrapedAt: "",
+  };
+}
+
+async function insertProviderWithCourses(
+  p: TrainingProvider,
+  scrapedAt: string,
+  client: Parameters<typeof execute>[2],
+): Promise<string> {
+  const providerId = newId();
+  await execute(
+    `INSERT INTO training_provider (
+      id, name, registration_no, status, email, phone, fax, website,
+      address, state, description, detail_url, scraped_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      providerId,
+      p.name,
+      p.registrationNo,
+      p.status,
+      p.email,
+      p.phone,
+      p.fax,
+      p.website,
+      p.address,
+      p.state,
+      p.description,
+      p.detailUrl,
+      p.scrapedAt || scrapedAt,
+    ],
+    client,
+  );
+  for (let i = 0; i < p.courses.length; i += 1) {
+    const c = p.courses[i]!;
+    await execute(
+      `INSERT INTO training_provider_course (
+        id, provider_id, title, code, scheme, claimable,
+        duration, fee, mode, category, sort_order
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newId(),
+        providerId,
+        c.title,
+        c.code,
+        c.scheme,
+        c.claimable,
+        c.duration,
+        c.fee,
+        c.mode,
+        c.category,
+        i,
+      ],
+      client,
+    );
+  }
+  return providerId;
+}
+
+/** Update or insert only the given rows (avoids rewriting the full HRDC catalog). */
+export async function upsertTrainingProvidersInDb(
+  providers: TrainingProvider[],
+  options?: { model?: string; scrapedAt?: string },
+): Promise<void> {
+  if (providers.length === 0) return;
+
+  const now = new Date().toISOString();
+  const scrapedAt = options?.scrapedAt ?? now;
+  const indexRows = await queryAll<{
+    id: string;
+    name: string;
+    registration_no: string;
+    email: string;
+  }>(`SELECT id, name, registration_no, email FROM training_provider`);
+
+  const idByKey = new Map<string, string>();
+  for (const row of indexRows) {
+    idByKey.set(trainingProviderMergeKey(providerRowForKey(row)), row.id);
+  }
+
+  await withTransaction(async (client) => {
+    for (const p of providers) {
+      const key = trainingProviderMergeKey(p);
+      const existingId = idByKey.get(key);
+      if (existingId) {
+        await execute(
+          `UPDATE training_provider SET
+            name = ?, registration_no = ?, status = ?, email = ?, phone = ?, fax = ?,
+            website = ?, address = ?, state = ?, description = ?, detail_url = ?, scraped_at = ?
+           WHERE id = ?`,
+          [
+            p.name,
+            p.registrationNo,
+            p.status,
+            p.email,
+            p.phone,
+            p.fax,
+            p.website,
+            p.address,
+            p.state,
+            p.description,
+            p.detailUrl,
+            p.scrapedAt || scrapedAt,
+            existingId,
+          ],
+          client,
+        );
+        await execute(
+          `DELETE FROM training_provider_course WHERE provider_id = ?`,
+          [existingId],
+          client,
+        );
+        for (let i = 0; i < p.courses.length; i += 1) {
+          const c = p.courses[i]!;
+          await execute(
+            `INSERT INTO training_provider_course (
+              id, provider_id, title, code, scheme, claimable,
+              duration, fee, mode, category, sort_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              newId(),
+              existingId,
+              c.title,
+              c.code,
+              c.scheme,
+              c.claimable,
+              c.duration,
+              c.fee,
+              c.mode,
+              c.category,
+              i,
+            ],
+            client,
+          );
+        }
+      } else {
+        const id = await insertProviderWithCourses(p, scrapedAt, client);
+        idByKey.set(key, id);
+      }
+    }
+
+    if (options?.model) {
+      await execute(
+        `INSERT INTO training_provider_sync (id, scraped_at, model, updated_at)
+         VALUES ('default', ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           scraped_at = EXCLUDED.scraped_at,
+           model = EXCLUDED.model,
+           updated_at = EXCLUDED.updated_at`,
+        [scrapedAt, options.model, now],
+        client,
+      );
+    }
+  });
+}
+
 export async function saveTrainingProvidersToDb(data: ProvidersData): Promise<void> {
   const now = new Date().toISOString();
 
@@ -123,53 +298,7 @@ export async function saveTrainingProvidersToDb(data: ProvidersData): Promise<vo
     await execute(`DELETE FROM training_provider`, [], client);
 
     for (const p of data.providers) {
-      const providerId = newId();
-      await execute(
-        `INSERT INTO training_provider (
-          id, name, registration_no, status, email, phone, fax, website,
-          address, state, description, detail_url, scraped_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          providerId,
-          p.name,
-          p.registrationNo,
-          p.status,
-          p.email,
-          p.phone,
-          p.fax,
-          p.website,
-          p.address,
-          p.state,
-          p.description,
-          p.detailUrl,
-          p.scrapedAt || data.scrapedAt,
-        ],
-        client,
-      );
-
-      for (let i = 0; i < p.courses.length; i += 1) {
-        const c = p.courses[i]!;
-        await execute(
-          `INSERT INTO training_provider_course (
-            id, provider_id, title, code, scheme, claimable,
-            duration, fee, mode, category, sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            newId(),
-            providerId,
-            c.title,
-            c.code,
-            c.scheme,
-            c.claimable,
-            c.duration,
-            c.fee,
-            c.mode,
-            c.category,
-            i,
-          ],
-          client,
-        );
-      }
+      await insertProviderWithCourses(p, data.scrapedAt, client);
     }
 
     await execute(

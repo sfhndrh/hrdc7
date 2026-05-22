@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminNavIconCourses } from "@/components/admin/admin-course-icons";
 import { cn } from "@/components/ui/button";
 
 export type AdminDetailTabId = "company" | "courses";
@@ -23,10 +24,13 @@ export function AdminDetailTabs({
         Company details
       </TabButton>
       <TabButton active={active === "courses"} onClick={() => onChange("courses")}>
-        Courses
-        {courseCount != null ? (
-          <span className="ml-1.5 tabular-nums text-[color:var(--text-muted)]">({courseCount})</span>
-        ) : null}
+        <span className="inline-flex items-center gap-1.5">
+          <AdminNavIconCourses className="h-4 w-4 opacity-80" />
+          Courses
+          {courseCount != null ? (
+            <span className="tabular-nums text-[color:var(--text-muted)]">({courseCount})</span>
+          ) : null}
+        </span>
       </TabButton>
     </div>
   );

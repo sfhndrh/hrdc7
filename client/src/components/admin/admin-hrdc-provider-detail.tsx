@@ -1,9 +1,12 @@
 "use client";
 
+import { useNavigate } from "react-router-dom";
+
 import {
   AdminCourseCardsGrid,
   AdminHrdcCourseCard,
 } from "@/components/admin/admin-course-cards";
+import { catalogCourseFromHrdc } from "@/lib/admin-course-detail";
 import type { TrainingProvider } from "@/lib/training-providers";
 
 function formatAddress(provider: TrainingProvider): string {
@@ -50,7 +53,15 @@ export function AdminHrdcProviderCoursesTab({ provider }: { provider: TrainingPr
   return (
     <AdminCourseCardsGrid>
       {provider.courses.map((c, i) => (
-        <AdminHrdcCourseCard key={`${c.code}-${c.title}-${i}`} course={c} />
+        <AdminHrdcCourseCard
+          key={`${c.code}-${c.title}-${i}`}
+          course={c}
+          onSelect={() =>
+            navigate("/admin/courses/view", {
+              state: { course: catalogCourseFromHrdc(c, provider.name) },
+            })
+          }
+        />
       ))}
     </AdminCourseCardsGrid>
   );

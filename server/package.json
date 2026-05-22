@@ -9,7 +9,8 @@
     "db:seed": "tsx seed.ts",
     "db:scrape-providers": "tsx scripts/scrape-training-providers.ts",
     "db:import-providers-csv": "tsx scripts/import-training-providers-csv.ts",
-    "db:dedupe-providers-csv": "tsx scripts/dedupe-providers-csv.ts"
+    "db:dedupe-providers-csv": "tsx scripts/dedupe-providers-csv.ts",
+    "db:dedupe-providers": "tsx scripts/dedupe-training-providers-db.ts"
   },
   "engines": {
     "node": ">=20"

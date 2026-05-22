@@ -152,21 +152,56 @@ export function StylizedBarChart() {
   );
 }
 
-export function StylizedDonutChart(props: { segments: Array<{ label: string; pct: number; color: string }> }) {
+function buildConicGradient(segments: Array<{ pct: number; color: string }>): string {
   let acc = 0;
-  const parts = props.segments.map((s) => {
+  const parts = segments.map((s) => {
     const start = acc;
     acc += s.pct;
     return `${s.color} ${start}% ${acc}%`;
   });
-  const bg = `conic-gradient(${parts.join(", ")}, #e5e7eb ${acc}% 100%)`;
+  return `conic-gradient(${parts.join(", ")}, #e5e7eb ${acc}% 100%)`;
+}
+
+/** Full pie chart (conic slices + legend). */
+export function StylizedPieChart(props: {
+  segments: Array<{ label: string; pct: number; color: string }>;
+}) {
+  const bg = buildConicGradient(props.segments);
 
   return (
     <div className="mt-2 flex flex-wrap items-center justify-center gap-8 py-4">
       <div
-        className="h-40 w-40 shrink-0 rounded-full shadow-inner"
+        className="h-44 w-44 shrink-0 rounded-full shadow-md ring-1 ring-[color:var(--border)]"
         style={{ background: bg }}
+        role="img"
+        aria-label="Pie chart"
       />
+      <ul className="max-h-52 space-y-2 overflow-y-auto text-sm text-[color:var(--text)]">
+        {props.segments.map((s) => (
+          <li key={s.label} className="flex items-center gap-2">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
+            <span className="min-w-0">
+              {s.label} <span className="text-[color:var(--text-muted)]">({s.pct}%)</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Donut variant (hollow center). */
+export function StylizedDonutChart(props: {
+  segments: Array<{ label: string; pct: number; color: string }>;
+}) {
+  const bg = buildConicGradient(props.segments);
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-center gap-8 py-4">
+      <div className="relative h-40 w-40 shrink-0">
+        <div className="h-full w-full rounded-full shadow-inner" style={{ background: bg }} />
+        <div className="absolute inset-[22%] rounded-full bg-[color:var(--surface)] shadow-inner" />
+      </div>
       <ul className="space-y-2 text-sm text-[color:var(--text)]">
         {props.segments.map((s) => (
           <li key={s.label} className="flex items-center gap-2">
@@ -175,6 +210,59 @@ export function StylizedDonutChart(props: { segments: Array<{ label: string; pct
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Vertical bar chart for categorical counts (e.g. courses by category). */
+export function CategoryVerticalBarChart(props: {
+  items: Array<{ label: string; value: number; color: string }>;
+}) {
+  const max = Math.max(1, ...props.items.map((i) => i.value));
+  const cols = props.items.length;
+  return (
+    <div
+      className="mt-4 grid h-52 gap-x-1.5 gap-y-1 px-1 sm:gap-x-2"
+      style={{
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gridTemplateRows: "auto 1fr auto",
+      }}
+    >
+      {props.items.map((item) => (
+        <div
+          key={`${item.label}-value`}
+          className="flex items-end justify-center"
+          title={`${item.label}: ${item.value}`}
+        >
+          <span className="text-[10px] font-semibold leading-none tabular-nums text-[color:var(--text-muted)]">
+            {item.value}
+          </span>
+        </div>
+      ))}
+      {props.items.map((item) => {
+        const heightPct = Math.max(4, Math.round((item.value / max) * 100));
+        return (
+          <div
+            key={`${item.label}-bar`}
+            className="flex min-h-0 items-end justify-center"
+            title={`${item.label}: ${item.value}`}
+          >
+            <div
+              className="w-full max-w-[40px] rounded-t-md shadow-sm"
+              style={{ height: `${heightPct}%`, backgroundColor: item.color }}
+            />
+          </div>
+        );
+      })}
+      {props.items.map((item) => (
+        <div
+          key={`${item.label}-label`}
+          className="line-clamp-2 text-center text-[10px] font-medium leading-tight text-[color:var(--text-muted)]"
+          title={item.label}
+        >
+          {item.label}
+        </div>
+      ))}
     </div>
   );
 }
@@ -202,6 +290,137 @@ export function HorizontalBarChart(props: {
         </div>
       ))}
     </div>
+  );
+}
+
+export type UserManagementAnalytics = {
+  totals: { employers: number; trainers: number; trainingProviders: number };
+  byRole: Array<{ label: string; value: number; color: string }>;
+  signUps: {
+    labels: string[];
+    employers: number[];
+    trainers: number[];
+    trainingProviders: number[];
+  };
+};
+
+function pctSegmentsFromValues(
+  items: Array<{ label: string; value: number; color: string }>,
+): Array<{ label: string; pct: number; color: string }> {
+  const total = items.reduce((a, s) => a + s.value, 0);
+  if (!total) return [];
+  const segments = items.map((s) => ({
+    label: s.label,
+    pct: Math.max(1, Math.round((s.value / total) * 100)),
+    color: s.color,
+  }));
+  const pctSum = segments.reduce((a, s) => a + s.pct, 0);
+  if (pctSum !== 100 && segments[0]) {
+    segments[0] = {
+      ...segments[0],
+      pct: Math.max(1, segments[0].pct + (100 - pctSum)),
+    };
+  }
+  return segments;
+}
+
+/** Admin dashboard: user counts, role breakdown, and sign-up trend. */
+export function AdminUserManagementAnalytics(props: {
+  data: UserManagementAnalytics | null;
+  emptyMessage?: string;
+}) {
+  if (props.data === null) {
+    return (
+      <div className="flex h-52 items-center justify-center text-sm text-[color:var(--text-muted)]">
+        Loading…
+      </div>
+    );
+  }
+
+  const { totals, byRole, signUps } = props.data;
+  const accountTotal = totals.employers + totals.trainers + totals.trainingProviders;
+  if (accountTotal === 0) {
+    return (
+      <div className="flex h-52 items-center justify-center text-sm text-[color:var(--text-muted)]">
+        {props.emptyMessage ?? "No users registered yet."}
+      </div>
+    );
+  }
+
+  const pieSegments = pctSegmentsFromValues(byRole);
+  const monthlySignUps = signUps.labels.map((label, idx) => ({
+    label,
+    value:
+      (signUps.employers[idx] ?? 0) +
+      (signUps.trainers[idx] ?? 0) +
+      (signUps.trainingProviders[idx] ?? 0),
+  }));
+  const hasSignUps = monthlySignUps.some((m) => m.value > 0);
+
+  return (
+    <div className="mt-4 space-y-6">
+      <div className="grid grid-cols-3 gap-3">
+        <UserRoleStatTile
+          href="/admin/clients"
+          label="Employers"
+          value={totals.employers}
+          accent="from-pink-500 to-rose-600"
+        />
+        <UserRoleStatTile
+          href="/admin/trainers"
+          label="Trainers"
+          value={totals.trainers}
+          accent="from-indigo-500 to-violet-600"
+        />
+        <UserRoleStatTile
+          href="/admin/training-providers"
+          label="Training providers"
+          value={totals.trainingProviders}
+          accent="from-amber-500 to-orange-600"
+        />
+      </div>
+
+      {pieSegments.length > 0 ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+            Users by role
+          </p>
+          <StylizedPieChart segments={pieSegments} />
+        </div>
+      ) : null}
+
+      {hasSignUps ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+            New accounts (last 6 months)
+          </p>
+          <HorizontalBarChart items={monthlySignUps} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function UserRoleStatTile(props: {
+  href: string;
+  label: string;
+  value: number;
+  accent: string;
+}) {
+  return (
+    <Link
+      href={props.href}
+      className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-center transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+    >
+      <div
+        className={`bg-gradient-to-br bg-clip-text text-2xl font-bold text-transparent ${props.accent}`}
+      >
+        {props.value}
+      </div>
+      <div className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+        {props.label}
+      </div>
+    </Link>
   );
 }
 

@@ -8,6 +8,7 @@ import { Navigate, useParams } from "react-router-dom";
 
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconUsers } from "@/components/dashboard/page-header-icons";
+import { EmployerAccountStatusPill } from "@/components/admin/admin-accounts-chrome";
 import { AdminTrainerActionsSection } from "@/components/admin/admin-trainer-actions";
 import { cn } from "@/components/ui/button";
 
@@ -111,7 +112,11 @@ export default function AdminTrainerDetailPage() {
             {e}
           </Pill>
         ))}
-        {row.status === "APPROVED" ? <Pill tone="green">HRD Corp verified</Pill> : null}
+        {row.accountStatus === "SUSPENDED" ? (
+          <EmployerAccountStatusPill status="SUSPENDED" />
+        ) : row.status === "APPROVED" ? (
+          <Pill tone="green">HRD Corp verified</Pill>
+        ) : null}
       </div>
 
       <Section title="Personal info">
@@ -185,6 +190,9 @@ export default function AdminTrainerDetailPage() {
 
       <Section title="Account & verification">
         <FieldGrid>
+          <ReadOnlyField label="Account status">
+            <EmployerAccountStatusPill status={row.accountStatus} />
+          </ReadOnlyField>
           <ReadOnlyField label="Application status" value={statusLabel} />
           <ReadOnlyField
             label="Admin note"

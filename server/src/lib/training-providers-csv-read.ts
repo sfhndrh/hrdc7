@@ -46,10 +46,14 @@ function readCsvTable(filePath: string): { header: string[]; rows: string[][] } 
   return { header, rows };
 }
 
+function normalizeHeader(h: string): string {
+  return h.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function rowToMap(header: string[], row: string[]): Record<string, string> {
   const m: Record<string, string> = {};
   for (let i = 0; i < header.length; i += 1) {
-    m[header[i]!] = row[i] ?? "";
+    m[normalizeHeader(header[i] ?? "")] = row[i] ?? "";
   }
   return m;
 }
@@ -91,12 +95,20 @@ export function readTrainingProvidersFromCsv(options?: {
 
   for (const row of pRows) {
     const m = rowToMap(pHeader, row);
-    const name = pickField(m, "provider", "name");
+    const name = pickField(
+      m,
+      "tp name",
+      "provider",
+      "provider name",
+      "name",
+      "company name",
+    );
     if (!name) continue;
     providers.push({
       ...emptyProvider(name, scrapedAt),
       email: pickField(m, "email"),
       phone: pickField(m, "telephone", "phone"),
+      website: pickField(m, "website", "web", "url"),
       address: pickField(m, "address"),
     });
   }

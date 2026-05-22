@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
 
-import {
-  AdminTrainingProvidersUnifiedView,
-} from "@/components/admin/admin-training-providers-view";
+import { AdminTrainingProvidersUnifiedView } from "@/components/admin/admin-training-providers-view";
 import type { PlatformTpRow } from "@/components/admin/admin-platform-tp-active-view";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconList } from "@/components/dashboard/page-header-icons";

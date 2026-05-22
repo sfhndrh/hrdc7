@@ -43,6 +43,7 @@ import TpRatingsPage from "@/screens/tp/TpRatingsPage";
 import TpProfilePage from "@/screens/tp/TpProfilePage";
 import TpCourseCreatePage from "@/screens/tp/TpCourseCreatePage";
 import TpCourseDetailPage from "@/screens/tp/TpCourseDetailPage";
+import TpCourseEditPage from "@/screens/tp/TpCourseEditPage";
 import TpScheduleCreatePage from "@/screens/tp/TpScheduleCreatePage";
 import TrainerCalendarPage from "@/screens/trainer-calendar/page";
 import TrainerCertificatePage from "@/screens/trainer-certificate/page";
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="dashboard" element={<TpDashboardPage />} />
         <Route path="courses" element={<TpCoursesPage />} />
         <Route path="courses/new" element={<TpCourseCreatePage />} />
+        <Route path="courses/:id/edit" element={<TpCourseEditPage />} />
         <Route path="courses/:id" element={<TpCourseDetailPage />} />
         <Route path="schedules" element={<TpSchedulesPage />} />
         <Route path="schedules/new" element={<TpScheduleCreatePage />} />

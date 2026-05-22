@@ -12,6 +12,7 @@ import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 
 type AdminTrainerApiRow = AdminTrainerRow & {
   profile_photo?: string | null;
+  accountStatus?: "ACTIVE" | "SUSPENDED";
 };
 
 function mapTrainerRow(t: AdminTrainerApiRow): AdminTrainerRow {
@@ -22,6 +23,7 @@ function mapTrainerRow(t: AdminTrainerApiRow): AdminTrainerRow {
     email: t.email,
     phone: t.phone,
     status: t.status,
+    accountStatus: t.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
     profilePhoto: normalizeProfilePhotoUrl(t.profilePhoto ?? t.profile_photo),
   };
 }

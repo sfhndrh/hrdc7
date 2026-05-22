@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { AdminNavIconCourses } from "@/components/admin/admin-course-icons";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export function AdminLayout() {
@@ -34,7 +35,7 @@ export function AdminLayout() {
       {
         href: "/admin/courses",
         label: "Courses",
-        icon: <IconCourses />,
+        icon: <AdminNavIconCourses className="h-5 w-5" />,
         isActive: (p: string) => p === "/admin/courses" || p.startsWith("/admin/courses/"),
       },
       {
@@ -148,18 +149,6 @@ function IconTrainingProviders() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-    </svg>
-  );
-}
-
-function IconCourses() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-      />
     </svg>
   );
 }

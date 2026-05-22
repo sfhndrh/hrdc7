@@ -3,6 +3,12 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import { Link } from "@/components/link";
 import { ButtonLink } from "@/components/ui/button";
+import {
+  EMPLOYER_PLAN_COMPARE_HEADING,
+  EMPLOYER_PLAN_COMPARE_SUBTITLE,
+  EMPLOYER_PLAN_FREE,
+  EMPLOYER_PLAN_PRO,
+} from "@/lib/employer-subscription-plans";
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -101,12 +107,15 @@ function HeroSection() {
           trainers faster.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[color:var(--text-muted)]">
-          Malaysia&rsquo;s first dedicated marketplace for HRD Corp certified
+          Malaysia&rsquo;s first dedicated platform for HRD Corp certified
           trainers. Employers claim back HRD Corp claimable training. Trainers
           grow their client base &mdash; all in one platform.
         </p>
 
-        <RoleRegisterButtons className="mt-6" />
+        <p className="mt-8 text-3xl font-bold tracking-tight text-[color:var(--text)] md:text-4xl">
+          Choose your role.
+        </p>
+        <RoleRegisterButtons className="mt-4" />
 
         <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-6 border-t border-[color:var(--border)] pt-6">
           <MiniStat value="500+" label="Active trainer profiles" />
@@ -355,36 +364,28 @@ function TrainerPlansSection() {
     <section className="bg-[color:var(--surface-muted)]">
       <div className="mx-auto max-w-6xl px-4 py-16 md:py-20">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-          Trainer plans
+          Plans
         </div>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--text)] md:text-4xl">
-          Start free, upgrade when you&rsquo;re ready
+          {EMPLOYER_PLAN_COMPARE_HEADING}
         </h2>
         <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
-          No commission on bookings. Just a flat subscription.
+          {EMPLOYER_PLAN_COMPARE_SUBTITLE}
         </p>
 
         <div className="mt-10 grid gap-5 md:grid-cols-2 md:items-stretch">
           <PlanCard
-            name="Free"
-            price="RM 0"
-            period="forever"
-            features={[
-              "Basic profile listing",
-              "Up to 3 training topics",
-            ]}
+            name={EMPLOYER_PLAN_FREE.name}
+            price={EMPLOYER_PLAN_FREE.price}
+            period={EMPLOYER_PLAN_FREE.period}
+            features={[...EMPLOYER_PLAN_FREE.features]}
           />
           <PlanCard
-            name="Pro"
-            price="RM 99"
-            period="per month"
+            name={EMPLOYER_PLAN_PRO.name}
+            price={EMPLOYER_PLAN_PRO.price}
+            period={EMPLOYER_PLAN_PRO.period}
             featured
-            features={[
-              "Full profile listing",
-              "Unlimited training topics",
-              "Profile view analytics",
-              "Direct employer contact info",
-            ]}
+            features={[...EMPLOYER_PLAN_PRO.features]}
           />
         </div>
       </div>

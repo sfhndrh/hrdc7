@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiAssetUrl, apiFetch } from "@/lib/api";
+import {
+  EMPLOYER_PLAN_COMPARE_HEADING,
+  EMPLOYER_PLAN_COMPARE_SUBTITLE,
+  EMPLOYER_PLAN_FREE,
+  EMPLOYER_PLAN_PRO,
+} from "@/lib/employer-subscription-plans";
 
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconReceipt } from "@/components/dashboard/page-header-icons";
@@ -359,40 +365,30 @@ function FreePlanCompare({
         Plans
       </div>
       <h2 className="mt-2 text-2xl font-bold tracking-tight text-[color:var(--text)]">
-        Start free, upgrade when you&rsquo;re ready
+        {EMPLOYER_PLAN_COMPARE_HEADING}
       </h2>
       <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-        No commission on bookings. Just a flat monthly subscription.
+        {EMPLOYER_PLAN_COMPARE_SUBTITLE}
       </p>
 
       <div className="mt-6 grid gap-5 md:grid-cols-2 md:items-stretch">
         <PlanCard
-          name="Free"
-          price="RM 0"
-          period="forever"
+          name={EMPLOYER_PLAN_FREE.name}
+          price={EMPLOYER_PLAN_FREE.price}
+          period={EMPLOYER_PLAN_FREE.period}
           badge="current"
           selected={selectedPlan === "free"}
           onSelect={() => onSelect("free")}
-          features={[
-            "Browse all published courses on the platform",
-            "Blurred course titles, categories, and provider details",
-            "Search and category filters do not return results",
-          ]}
+          features={[...EMPLOYER_PLAN_FREE.features]}
         />
         <PlanCard
-          name="Pro"
-          price="RM 99"
-          period="per month"
+          name={EMPLOYER_PLAN_PRO.name}
+          price={EMPLOYER_PLAN_PRO.price}
+          period={EMPLOYER_PLAN_PRO.period}
           badge="popular"
           selected={selectedPlan === "pro"}
           onSelect={() => onSelect("pro")}
-          features={[
-            "Unlock full course and provider details",
-            "Search and filter courses by title, category, or provider",
-            "View fees, duration, delivery mode, and locations",
-            "Read descriptions, learning outcomes, and materials notes",
-            "Download brochures, slides, and sample materials",
-          ]}
+          features={[...EMPLOYER_PLAN_PRO.features]}
         />
       </div>
     </section>

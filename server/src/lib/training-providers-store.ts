@@ -4,11 +4,13 @@ import {
   computeProvidersStats,
   TRAINING_PROVIDERS_JSON_PATH,
   type ProvidersData,
+  type TrainingProvider,
 } from "./training-providers.js";
 import {
   countTrainingProviders,
   getTrainingProvidersFromDb,
   saveTrainingProvidersToDb,
+  upsertTrainingProvidersInDb,
 } from "./training-providers-db.js";
 
 export async function getTrainingProviders(): Promise<ProvidersData | null> {
@@ -17,6 +19,13 @@ export async function getTrainingProviders(): Promise<ProvidersData | null> {
 
 export async function saveTrainingProviders(data: ProvidersData): Promise<void> {
   await saveTrainingProvidersToDb(data);
+}
+
+export async function upsertTrainingProviders(
+  providers: TrainingProvider[],
+  options?: { model?: string; scrapedAt?: string },
+): Promise<void> {
+  await upsertTrainingProvidersInDb(providers, options);
 }
 
 async function readTrainingProvidersJson(): Promise<ProvidersData | null> {

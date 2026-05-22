@@ -69,9 +69,14 @@ export default function TpCourseDetailPage() {
         title="Course details"
         icon={<PageHeaderIconTpCourses />}
         right={
-          <ButtonLink href="/tp/courses" variant="outline" size="sm">
-            Back to courses
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            <ButtonLink href={`/tp/courses/${course.id}/edit`} size="sm">
+              Edit
+            </ButtonLink>
+            <ButtonLink href="/tp/courses" variant="outline" size="sm">
+              Back to courses
+            </ButtonLink>
+          </div>
         }
       />
 

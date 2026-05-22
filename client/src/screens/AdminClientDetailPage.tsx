@@ -7,7 +7,10 @@ import { Link } from "@/components/link";
 import { Navigate, useParams } from "react-router-dom";
 
 import { AdminClientActionsSection } from "@/components/admin/admin-client-actions";
-import { SubscriptionPlanPill } from "@/components/admin/admin-accounts-chrome";
+import {
+  EmployerAccountStatusPill,
+  SubscriptionPlanPill,
+} from "@/components/admin/admin-accounts-chrome";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconBuilding } from "@/components/dashboard/page-header-icons";
 function subscriptionIsPro(status: string, expiresAt: string | null): boolean {
@@ -103,6 +106,11 @@ export default function AdminCompanyDetailPage() {
         description="Employer account"
         icon={<PageHeaderIconBuilding />}
       />
+      {row.accountStatus === "SUSPENDED" ? (
+        <div className="flex flex-wrap gap-2">
+          <EmployerAccountStatusPill status="SUSPENDED" />
+        </div>
+      ) : null}
 
       <Section title="Employer information">
         <FieldGrid>
@@ -115,6 +123,9 @@ export default function AdminCompanyDetailPage() {
 
       <Section title="Contact & account">
         <FieldGrid>
+          <ReadOnlyField label="Account status">
+            <EmployerAccountStatusPill status={row.accountStatus} />
+          </ReadOnlyField>
           <ReadOnlyField label="Primary contact name" value={row.contactName?.trim() || "—"} />
           <ReadOnlyField label="Contact email" value={row.contactEmail?.trim() || "—"} />
           <ReadOnlyField label="Sign-in email" value={row.user.email} />

@@ -4,6 +4,10 @@ import path from "node:path";
 import type { ProvidersData, TrainingProvider } from "./training-providers.js";
 import { computeProvidersStats } from "./training-providers.js";
 import { TRAINING_PROVIDERS_CSV_PATH } from "./training-providers.js";
+import {
+  dedupeTrainingProviderList,
+  providerDedupeKey,
+} from "./training-provider-keys.js";
 
 function csvCell(value: string | number | boolean): string {
   const s = String(value ?? "");
@@ -22,9 +26,7 @@ export type CsvWriteResult = {
   providerRows: number;
 };
 
-export function providerDedupeKey(p: TrainingProvider): string {
-  return p.name.trim().toLowerCase().replace(/\s+/g, " ");
-}
+export { providerDedupeKey } from "./training-provider-keys.js";
 
 /**
  * Keep all existing rows unchanged; append providers from `incoming` whose key is not present.
@@ -49,40 +51,11 @@ export function appendMissingProviders(
   };
 }
 
-function providerRichness(p: TrainingProvider): number {
-  return (
-    (p.email.trim() ? 4 : 0) +
-    (p.phone.trim() ? 4 : 0) +
-    (p.address.trim() ? 2 : 0)
-  );
-}
-
-function mergeProviders(keep: TrainingProvider, other: TrainingProvider): TrainingProvider {
-  const preferOther = providerRichness(other) > providerRichness(keep);
-  const a = preferOther ? other : keep;
-  const b = preferOther ? keep : other;
-  return {
-    ...a,
-    name: a.name || b.name,
-    email: a.email.trim() || b.email.trim(),
-    phone: a.phone.trim() || b.phone.trim(),
-    address: a.address.trim() || b.address.trim(),
-  };
-}
-
-/** Remove duplicate providers (by name), keeping the richest contact row. */
+/** Remove duplicate providers (by name or registration no), keeping the richest row. */
 export function dedupeTrainingProviders(
   providers: TrainingProvider[],
 ): { providers: TrainingProvider[]; removed: number } {
-  const byKey = new Map<string, TrainingProvider>();
-  for (const p of providers) {
-    if (!p.name.trim()) continue;
-    const key = providerDedupeKey(p);
-    const prev = byKey.get(key);
-    byKey.set(key, prev ? mergeProviders(prev, p) : p);
-  }
-  const deduped = [...byKey.values()];
-  return { providers: deduped, removed: providers.length - deduped.length };
+  return dedupeTrainingProviderList(providers);
 }
 
 export function writeTrainingProvidersCsv(

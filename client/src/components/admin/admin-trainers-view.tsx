@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   AdminAccountsChrome,
   AdminAccountsSortTh,
+  EmployerAccountStatusPill,
   type AdminSortDir,
 } from "@/components/admin/admin-accounts-chrome";
 import {
@@ -24,6 +25,7 @@ export type AdminTrainerRow = {
   email: string;
   phone: string;
   status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+  accountStatus: "ACTIVE" | "SUSPENDED";
   profilePhoto?: string | null;
 };
 
@@ -63,7 +65,14 @@ export function AdminTrainersView({
     const needle = q.trim().toLowerCase();
     if (!needle) return trainers;
     return trainers.filter((t) => {
-      const hay = `${t.fullName} ${t.email} ${t.phone} ${t.subtitle}`.toLowerCase();
+      const verificationStatus =
+        t.accountStatus === "SUSPENDED"
+          ? "suspended"
+          : t.status === "APPROVED"
+            ? "active"
+            : t.status.replace(/_/g, " ");
+      const hay =
+        `${t.fullName} ${t.email} ${t.phone} ${t.subtitle} ${verificationStatus}`.toLowerCase();
       return hay.includes(needle);
     });
   }, [trainers, q]);
@@ -74,9 +83,12 @@ export function AdminTrainersView({
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case "status":
-          cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+        case "status": {
+          const aRank = a.accountStatus === "SUSPENDED" ? -1 : STATUS_ORDER[a.status];
+          const bRank = b.accountStatus === "SUSPENDED" ? -1 : STATUS_ORDER[b.status];
+          cmp = aRank - bRank;
           break;
+        }
         case "fullName":
         case "email":
         case "phone":
@@ -192,7 +204,7 @@ export function AdminTrainersView({
                     {t.phone}
                   </td>
                   <td className="px-4 py-4 align-middle">
-                    <TrainerStatusPill status={t.status} />
+                    <TrainerRowStatusPill row={t} />
                   </td>
                 </tr>
               ))
@@ -216,14 +228,18 @@ function initialsFromName(fullName: string) {
   );
 }
 
-function TrainerStatusPill({ status }: { status: AdminTrainerRow["status"] }) {
+function TrainerRowStatusPill({ row }: { row: AdminTrainerRow }) {
+  if (row.accountStatus === "SUSPENDED") {
+    return <EmployerAccountStatusPill status="SUSPENDED" />;
+  }
+  if (row.status === "APPROVED") {
+    return <EmployerAccountStatusPill status="ACTIVE" />;
+  }
+  return <TrainerVerificationStatusPill status={row.status} />;
+}
+
+function TrainerVerificationStatusPill({ status }: { status: AdminTrainerRow["status"] }) {
   switch (status) {
-    case "APPROVED":
-      return (
-        <span className="inline-flex rounded-full bg-emerald-700 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-          Approved
-        </span>
-      );
     case "REJECTED":
       return (
         <span className="inline-flex rounded-full bg-red-700 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">

@@ -1,10 +1,14 @@
 import type { TrainingProvider } from "@/lib/training-providers";
 
-/** Stable key for admin HRDC provider detail URLs. */
+function normalizeProviderName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Stable key for admin HRDC provider detail URLs (matches server). */
 export function hrdcProviderLookupKey(provider: TrainingProvider): string {
   const reg = provider.registrationNo?.trim();
   if (reg) return reg;
-  return `${provider.name.trim()}::${provider.email.trim()}`;
+  return normalizeProviderName(provider.name);
 }
 
 export function adminHrdcProviderDetailPath(provider: TrainingProvider): string {

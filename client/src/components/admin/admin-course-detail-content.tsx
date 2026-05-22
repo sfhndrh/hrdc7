@@ -53,6 +53,8 @@ export function AdminCourseDetailContent({
         <dl className="mt-4 grid gap-4 md:grid-cols-2">
           {isPlatform ? (
             <Field label="Training provider" value={course.providerNames[0] ?? extra?.companyName ?? "—"} />
+          ) : course.providerCount === 1 ? (
+            <Field label="Training provider" value={course.providerNames[0] ?? "—"} />
           ) : (
             <Field label="Providers offering this course" value={String(course.providerCount)} />
           )}

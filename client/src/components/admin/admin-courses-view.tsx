@@ -3,6 +3,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  AdminCategoryIcon,
+  AdminCourseIcon,
+  adminCourseIconBadgeClass,
+  AdminStatIconCategories,
+  AdminStatIconClaimable,
+  AdminStatIconTotalCourses,
+} from "@/components/admin/admin-course-icons";
 import { DashboardPageHeader, GradientStatCard } from "@/components/dashboard/dashboard-widgets";
 import { cn } from "@/components/ui/button";
 import {
@@ -12,6 +20,7 @@ import {
   mergeCourseCatalogs,
   type CatalogCourse,
   type CatalogCategory,
+  type CoursesClaimableFilter,
   type PlatformCourseForCatalog,
 } from "@/lib/training-courses-catalog";
 import type { ProvidersData } from "@/lib/training-providers";
@@ -27,6 +36,7 @@ export function AdminCoursesView({
 }) {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [claimableFilter, setClaimableFilter] = useState<CoursesClaimableFilter>("all");
 
   const catalog = useMemo(() => {
     const hrdc = hrdcData ? buildCoursesCatalog(hrdcData.providers) : [];
@@ -34,7 +44,12 @@ export function AdminCoursesView({
     return mergeCourseCatalogs(hrdc, platform);
   }, [hrdcData, platformCourses]);
 
-  const filtered = useMemo(() => filterCoursesCatalog(catalog, q), [catalog, q]);
+  const filtered = useMemo(
+    () => filterCoursesCatalog(catalog, q, claimableFilter),
+    [catalog, q, claimableFilter],
+  );
+
+  const hasActiveFilters = q.trim().length > 0 || claimableFilter !== "all";
 
   const stats = useMemo(() => {
     const totalCourses = catalog.reduce((n, c) => n + c.courses.length, 0);
@@ -77,39 +92,55 @@ export function AdminCoursesView({
           value={String(stats.totalCourses)}
           trend="All courses in the catalog"
           gradient="bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-800"
-          icon={<BookStatIcon />}
+          icon={<AdminStatIconTotalCourses />}
         />
         <GradientStatCard
           title="Categories"
           value={String(stats.categories)}
           trend="Course groupings by category"
           gradient="bg-gradient-to-br from-orange-400 via-rose-500 to-pink-600"
-          icon={<GridStatIcon />}
+          icon={<AdminStatIconCategories />}
         />
         <GradientStatCard
           title="HRDC claimable"
           value={String(stats.claimable)}
           trend="Courses claimable under HRD Corp"
           gradient="bg-gradient-to-br from-teal-400 via-emerald-500 to-cyan-700"
-          icon={<CheckStatIcon />}
+          icon={<AdminStatIconClaimable />}
         />
       </div>
 
       <section
         className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm"
-        aria-label="Search courses"
+        aria-label="Filter courses"
       >
-        <label className="relative block">
-          <span className="sr-only">Search courses by title, category, or code</span>
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search courses by title, category, or code…"
-            className="w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
-          />
-        </label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="relative block min-w-0 flex-1">
+            <span className="sr-only">Search courses by title, category, or code</span>
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search courses by title, category, or code…"
+              className="w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
+            />
+          </label>
+          <label className="block shrink-0 sm:w-52">
+            <span className="sr-only">Filter by HRDC claimable status</span>
+            <select
+              value={claimableFilter}
+              onChange={(e) =>
+                setClaimableFilter(e.target.value as CoursesClaimableFilter)
+              }
+              className="w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] px-3 py-2.5 text-sm text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
+            >
+              <option value="all">All courses</option>
+              <option value="claimable">HRDC claimable only</option>
+              <option value="not_claimable">Not HRDC claimable</option>
+            </select>
+          </label>
+        </div>
       </section>
 
       <section
@@ -118,7 +149,9 @@ export function AdminCoursesView({
       >
         {filtered.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-[color:var(--text-muted)]">
-            {q.trim() ? "No courses match your search." : "No courses listed yet."}
+            {hasActiveFilters
+              ? "No courses match your filters."
+              : "No courses listed yet."}
           </div>
         ) : (
           <div className="space-y-8 p-4 sm:p-6">
@@ -193,8 +226,13 @@ function CourseCard({
         "hover:border-sky-200 hover:bg-[color:var(--surface-muted)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60",
       )}
     >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-        <CourseIcon title={course.title} />
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+          adminCourseIconBadgeClass(course.category, course.title),
+        )}
+      >
+        <AdminCourseIcon category={course.category} title={course.title} className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 text-sm font-semibold leading-snug text-[color:var(--text)]">
@@ -211,99 +249,7 @@ function CourseCard({
 }
 
 function CategoryIcon({ name }: { name: string }) {
-  const n = name.toLowerCase();
-  if (n.includes("ai")) return <SparkIcon className="h-5 w-5" />;
-  if (n.includes("microsoft") || n.includes("office") || n.includes("365")) {
-    return <MonitorIcon className="h-5 w-5" />;
-  }
-  if (n.includes("leadership") || n.includes("management")) {
-    return <UsersIcon className="h-5 w-5" />;
-  }
-  return <BookIcon className="h-5 w-5" />;
-}
-
-function CourseIcon({ title }: { title: string }) {
-  const t = title.toLowerCase();
-  if (t.includes("ai") || t.includes("chatgpt") || t.includes("copilot")) {
-    return <SparkIcon className="h-4 w-4" />;
-  }
-  if (t.includes("excel") || t.includes("power bi") || t.includes("outlook")) {
-    return <ChartIcon className="h-4 w-4" />;
-  }
-  if (t.includes("team")) return <UsersIcon className="h-4 w-4" />;
-  return <BookIcon className="h-4 w-4" />;
-}
-
-function BookStatIcon() {
-  return (
-    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-      />
-    </svg>
-  );
-}
-
-function GridStatIcon() {
-  return (
-    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h7v7H4V6zm9 0h7v7h-7V6zM4 15h7v7H4v-7zm9 0h7v7h-7v-7z" />
-    </svg>
-  );
-}
-
-function CheckStatIcon() {
-  return (
-    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function BookIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13" />
-    </svg>
-  );
-}
-
-function SparkIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.5 5L12 4l-1.5 5L5 13l5-1.5L12 4 9.5 9.5 5 3z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l.75 2.5L20 17l-2.25.5L17 20l-.75-2.5L14 17l2.25-.5L17 14z" />
-    </svg>
-  );
-}
-
-function MonitorIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path strokeLinecap="round" d="M8 20h8" />
-    </svg>
-  );
-}
-
-function UsersIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-1a4 4 0 00-4-4H5a4 4 0 00-4 4v1" />
-      <circle cx="9" cy="7" r="4" />
-      <path strokeLinecap="round" d="M23 21v-1a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-    </svg>
-  );
-}
-
-function ChartIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-3" />
-    </svg>
-  );
+  return <AdminCategoryIcon category={name} className="h-5 w-5" />;
 }
 
 function SearchIcon({ className }: { className?: string }) {

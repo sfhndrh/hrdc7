@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  AdminCourseIcon,
+  adminCourseIconBadgeClass,
+} from "@/components/admin/admin-course-icons";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/button";
 import { formatRm, type TpCourse } from "@/lib/tp-platform";
@@ -35,7 +39,12 @@ export function AdminPlatformCourseCard({
 
   return (
     <button type="button" onClick={onSelect} className={interactiveCardClass}>
-      <CourseCardHeader title={course.title} subtitle={course.category} code={course.courseCode} />
+      <CourseCardHeader
+        title={course.title}
+        subtitle={course.category}
+        code={course.courseCode}
+        category={course.category}
+      />
       <div className="my-4 border-t border-[color:var(--border)]" />
       <div className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <InfoCell label="Fee" value={fee} />
@@ -52,13 +61,21 @@ export function AdminPlatformCourseCard({
   );
 }
 
-export function AdminHrdcCourseCard({ course }: { course: TrainingCourse }) {
+export function AdminHrdcCourseCard({
+  course,
+  onSelect,
+}: {
+  course: TrainingCourse;
+  onSelect: () => void;
+}) {
   return (
-    <article className={cardClass}>
+    <button type="button" onClick={onSelect} className={interactiveCardClass}>
       <CourseCardHeader
         title={course.title || "Untitled course"}
-        subtitle={course.scheme || "—"}
+        subtitle={course.scheme || course.category || "—"}
         code={course.code || undefined}
+        category={course.category || course.scheme}
+        titleForIcon={course.title}
       />
       <div className="my-4 border-t border-[color:var(--border)]" />
       <div className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -74,7 +91,7 @@ export function AdminHrdcCourseCard({ course }: { course: TrainingCourse }) {
           <Badge tone="gray">Not Claimable</Badge>
         )}
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -82,15 +99,24 @@ function CourseCardHeader({
   title,
   subtitle,
   code,
+  category,
+  titleForIcon = title,
 }: {
   title: string;
   subtitle: string;
   code?: string;
+  category: string;
+  titleForIcon?: string;
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-        <BookIcon className="h-5 w-5" />
+      <div
+        className={cn(
+          "grid h-12 w-12 shrink-0 place-items-center rounded-xl",
+          adminCourseIconBadgeClass(category, titleForIcon),
+        )}
+      >
+        <AdminCourseIcon category={category} title={titleForIcon} className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="text-base font-semibold leading-tight text-[color:var(--text)]">{title}</h3>
@@ -116,21 +142,3 @@ function InfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BookIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className={className}
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 7H20v13H6.5A2.5 2.5 0 0 1 4 17.5v-13z"
-      />
-    </svg>
-  );
-}

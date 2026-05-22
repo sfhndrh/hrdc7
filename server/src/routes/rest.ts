@@ -1155,10 +1155,22 @@ const EXPERTISE_COLORS = [
   "#f97316",
 ];
 
+const USER_ROLE_COLORS = {
+  employers: "#ec4899",
+  trainers: "#4f46e5",
+  trainingProviders: "#f59e0b",
+} as const;
+
 restRouter.get("/admin/dashboard-analytics", requireRoles(["ADMIN"]), async (_req, res) => {
-  // ---- Registrations: last 6 months bucketed by year-month -------------
+  // ---- User sign-ups: last 6 months bucketed by year-month ----------------
   const now = new Date();
-  const buckets: Array<{ key: string; label: string; trainers: number; companies: number }> = [];
+  const buckets: Array<{
+    key: string;
+    label: string;
+    trainers: number;
+    companies: number;
+    trainingProviders: number;
+  }> = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -1167,25 +1179,63 @@ restRouter.get("/admin/dashboard-analytics", requireRoles(["ADMIN"]), async (_re
       label: MONTH_LABELS_SHORT[d.getMonth()] ?? key,
       trainers: 0,
       companies: 0,
+      trainingProviders: 0,
     });
   }
   const oldestKey = buckets[0]?.key ?? `${now.getFullYear()}-01`;
   const oldestStartIso = new Date(`${oldestKey}-01T00:00:00.000Z`).toISOString();
 
-  const trainerRows = await queryAll<{ ym: string; c: number }>(
-    `SELECT substring("createdAt" from 1 for 7) as ym, count(*)::int as c
+  const [
+    trainerRows,
+    clientRows,
+    tpOrgRows,
+    employersTotal,
+    trainersTotal,
+    trainingProvidersTotal,
+  ] = await Promise.all([
+    queryAll<{ ym: string; c: number }>(
+      `SELECT substring("createdAt" from 1 for 7) as ym, count(*)::int as c
        FROM "Trainer"
        WHERE "createdAt" >= ?
        GROUP BY ym`,
-    [oldestStartIso],
-  );
-  const clientRows = await queryAll<{ ym: string; c: number }>(
-    `SELECT substring("createdAt" from 1 for 7) as ym, count(*)::int as c
+      [oldestStartIso],
+    ),
+    queryAll<{ ym: string; c: number }>(
+      `SELECT substring("createdAt" from 1 for 7) as ym, count(*)::int as c
        FROM "Client"
        WHERE "createdAt" >= ?
        GROUP BY ym`,
-    [oldestStartIso],
-  );
+      [oldestStartIso],
+    ),
+    queryAll<{ ym: string; c: number }>(
+      `SELECT substring("createdAt" from 1 for 7) as ym, count(*)::int as c
+       FROM "TpOrganization"
+       WHERE "createdAt" >= ? AND status <> 'REJECTED'
+       GROUP BY ym`,
+      [oldestStartIso],
+    ),
+    queryOne<{ c: number | string }>(`SELECT count(*)::int as c FROM "Client"`),
+    queryOne<{ c: number | string }>(`SELECT count(*)::int as c FROM "Trainer"`),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "TpOrganization" WHERE status <> 'REJECTED'`,
+    ),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "Trainer" WHERE "status" IN ('PENDING', 'UNDER_REVIEW')`,
+    ),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "Trainer" WHERE "accountStatus" = 'SUSPENDED'`,
+    ),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "Client" WHERE "accountStatus" = 'SUSPENDED'`,
+    ),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "TpOrganization"
+       WHERE status IN ('PENDING', 'UNDER_REVIEW')`,
+    ),
+    queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "TpOrganization" WHERE "accountStatus" = 'SUSPENDED'`,
+    ),
+  ]);
 
   const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
   for (const row of trainerRows) {
@@ -1196,41 +1246,76 @@ restRouter.get("/admin/dashboard-analytics", requireRoles(["ADMIN"]), async (_re
     const b = bucketByKey.get(row.ym);
     if (b) b.companies = row.c;
   }
-
-  // ---- Expertise: count occurrences across all trainers ----------------
-  const expertiseRaw = await queryAll<{ expertise: string }>(
-    `SELECT "expertise" FROM "Trainer"`,
-  );
-  const counts = new Map<string, number>();
-  for (const row of expertiseRaw) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(row.expertise ?? "[]");
-    } catch {
-      parsed = [];
-    }
-    const labels = asStringArray(parsed);
-    for (const raw of labels) {
-      const label = raw.trim();
-      if (!label) continue;
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
+  for (const row of tpOrgRows) {
+    const b = bucketByKey.get(row.ym);
+    if (b) b.trainingProviders = row.c;
   }
-  const expertise = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, value], idx) => ({
-      label,
-      value,
-      color: EXPERTISE_COLORS[idx % EXPERTISE_COLORS.length] ?? "#6366f1",
-    }));
+
+  const employers = asCount(employersTotal);
+  const trainers = asCount(trainersTotal);
+  const trainingProviders = asCount(trainingProvidersTotal);
+
+  // ---- Courses by category: platform TpCourse + HRDC directory courses ----
+  function normalizeCourseCategory(raw: string): string {
+    const t = raw.trim();
+    return t || "Uncategorized";
+  }
+
+  const categoryCounts = new Map<string, number>();
+  const platformCourseRows = await queryAll<{ category: string; c: number }>(
+    `SELECT COALESCE(NULLIF(TRIM("category"), ''), 'Uncategorized') AS category, COUNT(*)::int AS c
+     FROM "TpCourse"
+     GROUP BY COALESCE(NULLIF(TRIM("category"), ''), 'Uncategorized')`,
+  );
+  for (const row of platformCourseRows) {
+    const label = normalizeCourseCategory(row.category);
+    categoryCounts.set(label, (categoryCounts.get(label) ?? 0) + row.c);
+  }
+
+  const hrdcCourseRows = await queryAll<{ category: string; c: number }>(
+    `SELECT COALESCE(NULLIF(TRIM(category), ''), 'Uncategorized') AS category, COUNT(*)::int AS c
+     FROM training_provider_course
+     GROUP BY COALESCE(NULLIF(TRIM(category), ''), 'Uncategorized')`,
+  );
+  for (const row of hrdcCourseRows) {
+    const label = normalizeCourseCategory(row.category);
+    categoryCounts.set(label, (categoryCounts.get(label) ?? 0) + row.c);
+  }
+
+  const sortedCategories = Array.from(categoryCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const maxSlices = 9;
+  const top = sortedCategories.slice(0, maxSlices);
+  const rest = sortedCategories.slice(maxSlices);
+  const otherTotal = rest.reduce((sum, [, v]) => sum + v, 0);
+  const chartRows =
+    otherTotal > 0 ? [...top, ["Other", otherTotal] as const] : top;
+
+  const coursesByCategory = chartRows.map(([label, value], idx) => ({
+    label,
+    value,
+    color: EXPERTISE_COLORS[idx % EXPERTISE_COLORS.length] ?? "#6366f1",
+  }));
 
   res.json({
-    registrations: {
-      labels: buckets.map((b) => b.label),
-      trainers: buckets.map((b) => b.trainers),
-      companies: buckets.map((b) => b.companies),
+    userManagement: {
+      totals: { employers, trainers, trainingProviders },
+      byRole: [
+        { label: "Employers", value: employers, color: USER_ROLE_COLORS.employers },
+        { label: "Trainers", value: trainers, color: USER_ROLE_COLORS.trainers },
+        {
+          label: "Training providers",
+          value: trainingProviders,
+          color: USER_ROLE_COLORS.trainingProviders,
+        },
+      ].filter((row) => row.value > 0),
+      signUps: {
+        labels: buckets.map((b) => b.label),
+        employers: buckets.map((b) => b.companies),
+        trainers: buckets.map((b) => b.trainers),
+        trainingProviders: buckets.map((b) => b.trainingProviders),
+      },
     },
-    expertise,
+    coursesByCategory,
   });
 });
 
@@ -1388,10 +1473,11 @@ restRouter.get("/admin/trainers", requireRoles(["ADMIN"]), async (_req, res) => 
     expertise: string;
     phone: string;
     status: string;
+    accountStatus: string | null;
     profilePhoto: string | null;
     email: string;
   }>(
-    `SELECT t."id", t."fullName", t."expertise", t."phone", t."status", t."profilePhoto", u."email"
+    `SELECT t."id", t."fullName", t."expertise", t."phone", t."status", t."accountStatus", t."profilePhoto", u."email"
        FROM "Trainer" t JOIN "User" u ON u."id" = t."userId"
        ORDER BY t."fullName" ASC`,
   );
@@ -1407,6 +1493,7 @@ restRouter.get("/admin/trainers", requireRoles(["ADMIN"]), async (_req, res) => 
         email: t.email,
         phone: t.phone,
         status: t.status,
+        accountStatus: t.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
         profilePhoto,
       };
     }),

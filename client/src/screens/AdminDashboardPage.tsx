@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 import {
+  AdminUserManagementAnalytics,
   AnalyticsChartCard,
   DashboardPageHeader,
-  DualSeriesBarChart,
+  CategoryVerticalBarChart,
   GradientStatCard,
-  StylizedDonutChart,
+  type UserManagementAnalytics,
 } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconHome } from "@/components/dashboard/page-header-icons";
 
 type DashboardAnalytics = {
-  registrations: { labels: string[]; trainers: number[]; companies: number[] };
-  expertise: Array<{ label: string; value: number; color: string }>;
+  userManagement: UserManagementAnalytics;
+  coursesByCategory: Array<{ label: string; value: number; color: string }>;
 };
 
 export default function AdminDashboardPage() {
@@ -34,30 +35,9 @@ export default function AdminDashboardPage() {
       .then((d: DashboardAnalytics) => setAnalytics(d));
   }, []);
 
-  const expertisePctSegments = useMemo(() => {
-    const items = analytics?.expertise ?? [];
-    const total = items.reduce((a, s) => a + s.value, 0);
-    if (!total) return [];
-    const segments = items.map((s) => ({
-      label: s.label,
-      pct: Math.max(1, Math.round((s.value / total) * 100)),
-      color: s.color,
-    }));
-    const pctSum = segments.reduce((a, s) => a + s.pct, 0);
-    if (pctSum !== 100 && segments[0]) {
-      segments[0] = {
-        ...segments[0],
-        pct: Math.max(1, segments[0].pct + (100 - pctSum)),
-      };
-    }
-    return segments;
-  }, [analytics]);
-
-  const regSeries = analytics?.registrations ?? {
-    labels: [],
-    trainers: [],
-    companies: [],
-  };
+  const coursesByCategory = analytics?.coursesByCategory ?? [];
+  const hasCoursesByCategory =
+    coursesByCategory.length > 0 && coursesByCategory.some((c) => c.value > 0);
 
   const pendingApprovals = stats?.pendingApprovals ?? "—";
   const activeSubscriptions = stats?.activeSubscriptions ?? "—";
@@ -95,28 +75,16 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <AnalyticsChartCard title="Total Registered Users">
-          {analytics === null ? (
-            <EmptyChartState message="Loading…" />
-          ) : regSeries.labels.length === 0 ||
-            regSeries.trainers.every((v) => v === 0) &&
-              regSeries.companies.every((v) => v === 0) ? (
-            <EmptyChartState message="No registrations yet." />
-          ) : (
-            <DualSeriesBarChart
-              xLabels={regSeries.labels}
-              seriesA={{ label: "Trainers", values: regSeries.trainers, colorClass: "bg-indigo-600" }}
-              seriesB={{ label: "Employers", values: regSeries.companies, colorClass: "bg-pink-500" }}
-            />
-          )}
+        <AnalyticsChartCard title="User Management">
+          <AdminUserManagementAnalytics data={analytics?.userManagement ?? null} />
         </AnalyticsChartCard>
-        <AnalyticsChartCard title="Trainers by Expertise Category">
+        <AnalyticsChartCard title="Courses by Category">
           {analytics === null ? (
             <EmptyChartState message="Loading…" />
-          ) : expertisePctSegments.length === 0 ? (
-            <EmptyChartState message="No trainer expertise data yet." />
+          ) : !hasCoursesByCategory ? (
+            <EmptyChartState message="No courses in the catalog yet." />
           ) : (
-            <StylizedDonutChart segments={expertisePctSegments} />
+            <CategoryVerticalBarChart items={coursesByCategory} />
           )}
         </AnalyticsChartCard>
       </div>
