@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
-import { execute } from "../db/query.js";
+import { execute, queryOne } from "../db/query.js";
 import { newId } from "../db/ids.js";
 import type { VerificationResult } from "../db/types.js";
 
@@ -65,13 +65,34 @@ ${result.summary}
 Review this trainer:
 /admin/trainers/${trainerId}/review`;
 
-    await execute(
-      `
-      INSERT INTO notifications (id, type, title, body, trainer_id, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, false, ?)
-    `,
-      [newId(), "VERIFICATION_COMPLETE", title, body, trainerId, isoNow()],
+    const now = isoNow();
+    const existing = await queryOne<{ id: string }>(
+      `SELECT id FROM notifications
+       WHERE trainer_id = ? AND type = 'VERIFICATION_COMPLETE'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [trainerId],
     );
+
+    if (existing) {
+      await execute(
+        `UPDATE notifications
+         SET title = ?, body = ?, is_read = false, created_at = ?
+         WHERE id = ?`,
+        [title, body, now, existing.id],
+      );
+      await execute(
+        `DELETE FROM notifications
+         WHERE trainer_id = ? AND type = 'VERIFICATION_COMPLETE' AND id != ?`,
+        [trainerId, existing.id],
+      );
+    } else {
+      await execute(
+        `INSERT INTO notifications (id, type, title, body, trainer_id, is_read, created_at)
+         VALUES (?, ?, ?, ?, ?, false, ?)`,
+        [newId(), "VERIFICATION_COMPLETE", title, body, trainerId, now],
+      );
+    }
 
     try {
       await sendAdminEmail(title, body);

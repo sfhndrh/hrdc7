@@ -21,6 +21,9 @@ export const TRAINER_PROFILE_PHOTO_DIR = path.join(
 );
 export const PAYMENT_QR_DIR = path.join(uploadRoot, "payment-qr");
 export const PAYMENT_PROOF_DIR = path.join(uploadRoot, "payment-proofs");
+export const TP_LOGO_DIR = path.join(uploadRoot, "tp-logos");
+export const TP_VERIFICATION_DIR = path.join(uploadRoot, "tp-verification");
+export const TP_COURSE_FILES_DIR = path.join(uploadRoot, "tp-course-files");
 
 const DIRS = [
   HRDC_CERT_UPLOAD_DIR,
@@ -28,6 +31,9 @@ const DIRS = [
   TRAINER_PROFILE_PHOTO_DIR,
   PAYMENT_QR_DIR,
   PAYMENT_PROOF_DIR,
+  TP_LOGO_DIR,
+  TP_VERIFICATION_DIR,
+  TP_COURSE_FILES_DIR,
 ];
 
 export function ensureUploadDirs(): void {
@@ -43,6 +49,9 @@ export function resolveHrdcCertPath(filename: string): string {
 const UPLOAD_URL_PREFIXES: Array<{ prefix: string; dir: string }> = [
   { prefix: "/api/uploads/company-photos/", dir: COMPANY_PROFILE_PHOTO_DIR },
   { prefix: "/api/uploads/payment-proof/", dir: PAYMENT_PROOF_DIR },
+  { prefix: "/api/uploads/tp-logos/", dir: TP_LOGO_DIR },
+  { prefix: "/api/uploads/tp-verification/", dir: TP_VERIFICATION_DIR },
+  { prefix: "/api/uploads/tp-course-files/", dir: TP_COURSE_FILES_DIR },
 ];
 
 /** Best-effort removal of a file previously served under /api/uploads/… */

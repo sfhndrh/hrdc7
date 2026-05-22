@@ -12,6 +12,7 @@ import { ensureTrainingProvidersInDb } from "./lib/training-providers-store.js";
 import { buildCorsOptions } from "./lib/cors.js";
 import { ensureUploadDirs } from "./lib/uploads.js";
 import { restRouter } from "./routes/rest.js";
+import { tpPlatformRouter } from "./routes/tp-platform.js";
 import { trainingProvidersRouter } from "./routes/training-providers.js";
 import verifyRouter from "./routes/verify.js";
 
@@ -52,6 +53,7 @@ async function main() {
   app.use(express.json({ limit: "2mb" }));
   app.use(cookieParser());
   app.use("/api", restRouter);
+  app.use("/api", tpPlatformRouter);
   app.use("/api", trainingProvidersRouter);
   app.use("/api/trainer", verifyRouter);
 

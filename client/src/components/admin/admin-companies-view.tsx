@@ -7,10 +7,14 @@ import type { ReactNode } from "react";
 import {
   AdminAccountsChrome,
   AdminAccountsSortTh,
-  AdminAccountsTh,
+  EmployerAccountStatusPill,
   type AdminSortDir,
   SubscriptionPlanPill,
 } from "@/components/admin/admin-accounts-chrome";
+import {
+  AdminTablePagination,
+  useAdminTablePagination,
+} from "@/components/admin/admin-table-pagination";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { cn } from "@/components/ui/button";
 import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
@@ -18,15 +22,22 @@ import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 export type AdminCompanyRow = {
   id: string;
   companyName: string;
+  /** Employer type label shown under name (e.g. Company, Organization). */
   subtitle: string;
-  industry: string;
+  profileType?: string;
   email: string;
   phone: string;
   planTier: "free" | "pro";
+  accountStatus: "ACTIVE" | "SUSPENDED";
   profilePhoto?: string | null;
 };
 
-type CompanySortKey = "companyName" | "industry" | "email" | "phone" | "planTier";
+type CompanySortKey = "companyName" | "email" | "phone" | "planTier" | "accountStatus";
+
+const ACCOUNT_STATUS_ORDER: Record<AdminCompanyRow["accountStatus"], number> = {
+  ACTIVE: 0,
+  SUSPENDED: 1,
+};
 
 export function AdminCompaniesView({
   companies,
@@ -55,7 +66,9 @@ export function AdminCompaniesView({
     const needle = q.trim().toLowerCase();
     if (!needle) return companies;
     return companies.filter((c) => {
-      const hay = `${c.companyName} ${c.industry} ${c.email} ${c.phone} ${c.subtitle}`.toLowerCase();
+      const statusLabel = c.accountStatus === "SUSPENDED" ? "suspended" : "active";
+      const hay =
+        `${c.companyName} ${c.email} ${c.phone} ${c.subtitle} ${statusLabel}`.toLowerCase();
       return hay.includes(needle);
     });
   }, [companies, q]);
@@ -72,8 +85,10 @@ export function AdminCompaniesView({
           cmp = ra - rb;
           break;
         }
+        case "accountStatus":
+          cmp = ACCOUNT_STATUS_ORDER[a.accountStatus] - ACCOUNT_STATUS_ORDER[b.accountStatus];
+          break;
         case "companyName":
-        case "industry":
         case "email":
         case "phone":
           cmp = a[sortKey].localeCompare(b[sortKey], undefined, {
@@ -89,19 +104,21 @@ export function AdminCompaniesView({
     return list;
   }, [filtered, sort]);
 
+  const { paginated, ...pageProps } = useAdminTablePagination(sorted, [q, sort.key, sort.dir]);
+
   return (
     <AdminAccountsChrome
-      title="Companies"
-      description="Manage company accounts"
+      title="Employers"
+      description="Manage employer accounts"
       pageIcon={pageIcon}
-      searchPlaceholder="Search companies…"
+      searchPlaceholder="Search employers…"
       searchValue={q}
       onSearchChange={setQ}
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-[color:var(--border)] bg-[#faf8f5]">
+            <tr className="border-b border-[color:var(--border)] bg-[color:var(--table-header-bg)]">
               <AdminAccountsSortTh
                 columnKey="companyName"
                 activeKey={sort.key}
@@ -109,14 +126,6 @@ export function AdminCompaniesView({
                 onSort={onSort}
               >
                 Name
-              </AdminAccountsSortTh>
-              <AdminAccountsSortTh
-                columnKey="industry"
-                activeKey={sort.key}
-                dir={sort.dir}
-                onSort={onSort}
-              >
-                Industry
               </AdminAccountsSortTh>
               <AdminAccountsSortTh
                 columnKey="email"
@@ -142,7 +151,14 @@ export function AdminCompaniesView({
               >
                 Subscription plan
               </AdminAccountsSortTh>
-              <AdminAccountsTh className="text-center">Actions</AdminAccountsTh>
+              <AdminAccountsSortTh
+                columnKey="accountStatus"
+                activeKey={sort.key}
+                dir={sort.dir}
+                onSort={onSort}
+              >
+                Status
+              </AdminAccountsSortTh>
             </tr>
           </thead>
           <tbody>
@@ -150,13 +166,13 @@ export function AdminCompaniesView({
               <tr>
                 <td
                   className="px-4 py-10 text-center text-[color:var(--text-muted)]"
-                  colSpan={6}
+                  colSpan={5}
                 >
-                  No companies match your search.
+                  No employers match your search.
                 </td>
               </tr>
             ) : (
-              sorted.map((c) => (
+              paginated.map((c) => (
                 <tr
                   key={c.id}
                   role="link"
@@ -169,8 +185,8 @@ export function AdminCompaniesView({
                     }
                   }}
                   className={cn(
-                    "cursor-pointer border-b border-[color:var(--border)] last:border-b-0 hover:bg-sky-50/40",
-                    "focus-visible:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
+                    "cursor-pointer border-b border-[color:var(--border)] last:border-b-0 hover:bg-[color:var(--hover-subtle)]",
+                    "focus-visible:bg-[color:var(--hover-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
                   )}
                 >
                   <td className="px-4 py-4 align-middle">
@@ -190,9 +206,6 @@ export function AdminCompaniesView({
                       </div>
                     </div>
                   </td>
-                  <td className="max-w-[200px] px-4 py-4 align-middle text-[color:var(--text)]">
-                    <span className="line-clamp-2">{c.industry}</span>
-                  </td>
                   <td className="px-4 py-4 align-middle text-[color:var(--text)]">{c.email}</td>
                   <td className="px-4 py-4 align-middle tabular-nums text-[color:var(--text)]">
                     {c.phone}
@@ -200,20 +213,8 @@ export function AdminCompaniesView({
                   <td className="px-4 py-4 align-middle">
                     <SubscriptionPlanPill tier={c.planTier} />
                   </td>
-                  <td className="px-4 py-4 text-center align-middle">
-                    <div className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        title="Remove (coming soon)"
-                        className={cn(
-                          "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-red-600 hover:bg-red-50",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200",
-                        )}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <td className="px-4 py-4 align-middle">
+                    <EmployerAccountStatusPill status={c.accountStatus} />
                   </td>
                 </tr>
               ))
@@ -221,6 +222,7 @@ export function AdminCompaniesView({
           </tbody>
         </table>
       </div>
+      <AdminTablePagination {...pageProps} />
     </AdminAccountsChrome>
   );
 }
@@ -233,23 +235,4 @@ function initialsFromCompanyName(name: string) {
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
   return initials || "C";
-}
-
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6h12zM10 11v6M14 11v6"
-      />
-    </svg>
-  );
 }

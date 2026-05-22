@@ -6,6 +6,7 @@ import { useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { NavItem } from "@/components/app/app-shell";
+import { ThemeToggleButton } from "@/components/theme/theme-toggle-button";
 
 export type DashboardStatusPill = {
   variant: "success" | "warning" | "neutral";
@@ -26,11 +27,11 @@ export type DashboardShellProps = {
   searchPlaceholder?: string;
   /** Top bar search (client only by default) */
   showSearchBar?: boolean;
-  /** Header chip: role label shown under name (Admin/Company/Trainer) */
+  /** Header chip: role label shown under name (Admin/Employer/Trainer) */
   headerRoleLabel?: string;
   /** Header dropdown route */
   profileHref?: string;
-  /** Optional avatar image (company logo / trainer photo). Falls back to initials. */
+  /** Optional avatar image (employer logo / trainer photo). Falls back to initials. */
   avatarUrl?: string | null;
   children: React.ReactNode;
 };
@@ -155,9 +156,9 @@ export function DashboardShell({
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f4f7fc]">
+    <div className="h-screen overflow-hidden bg-[color:var(--page-bg)]">
       <aside
-        className="fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-[color:var(--border)] bg-white shadow-[2px_0_12px_rgba(11,31,59,0.06)] transition-[width] duration-200"
+        className="fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface)] shadow-[2px_0_12px_var(--shadow-color)] transition-[width] duration-200"
         style={{ width: sidebarWidth }}
       >
         <div
@@ -185,7 +186,7 @@ export function DashboardShell({
             <img
               src={apiAssetUrl(avatarUrl)}
               alt=""
-              className="h-12 w-12 shrink-0 rounded-full border border-[color:var(--border)] bg-white object-cover shadow-inner"
+              className="h-12 w-12 shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] object-cover shadow-inner"
             />
           ) : (
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-orange-600 text-lg font-semibold text-white shadow-inner">
@@ -246,7 +247,7 @@ export function DashboardShell({
                 className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   active
                     ? "bg-[color:var(--primary)] text-[color:var(--primary-foreground)] shadow-sm"
-                    : "text-[color:var(--text)] hover:bg-sky-50"
+                    : "text-[color:var(--text)] hover:bg-[color:var(--hover-subtle)]"
                 } ${sidebarCollapsed ? "relative justify-center px-2" : ""}`}
               >
                 {item.icon ? (
@@ -257,7 +258,7 @@ export function DashboardShell({
                 <span className={sidebarCollapsed ? "hidden" : ""}>{item.label}</span>
                 {item.badgeDot && sidebarCollapsed ? (
                   <span
-                    className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white"
+                    className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-[color:var(--surface)]"
                     aria-label="Unread"
                   />
                 ) : item.badgeDot ? (
@@ -313,7 +314,7 @@ export function DashboardShell({
 
       <div className="flex h-screen min-w-0 flex-col" style={{ marginLeft: sidebarWidth }}>
         <header
-          className={`fixed right-0 top-0 z-30 flex ${topbarHeightClass} shrink-0 items-center justify-between gap-6 border-b border-[color:var(--border)] bg-white px-6 shadow-sm`}
+          className={`fixed right-0 top-0 z-30 flex ${topbarHeightClass} shrink-0 items-center justify-between gap-6 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-6 shadow-sm`}
           style={{ left: sidebarWidth }}
           ref={headerRef}
         >
@@ -333,7 +334,7 @@ export function DashboardShell({
                 <input
                   type="search"
                   placeholder={searchPlaceholder}
-                  className="w-full rounded-lg border border-[color:var(--border)] bg-[#f4f7fc] py-2 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)]"
+                  className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--topbar-input-bg)] py-2 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)]"
                   readOnly
                   aria-readonly="true"
                 />
@@ -342,6 +343,7 @@ export function DashboardShell({
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggleButton />
             <div className="relative">
               <IconButton
                 aria-label="Notifications"
@@ -363,7 +365,7 @@ export function DashboardShell({
                 <div
                   role="dialog"
                   aria-label="Notifications"
-                  className="absolute right-0 z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-[0_18px_48px_rgba(11,31,59,0.14)]"
+                  className="absolute right-0 z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_18px_48px_var(--shadow-elevated)]"
                 >
                   <div className="border-b border-[color:var(--border)] px-4 py-3">
                     <div className="text-sm font-semibold text-[color:var(--text)]">
@@ -391,7 +393,7 @@ export function DashboardShell({
                             key={n.id}
                             type="button"
                             onClick={() => void openTopbarNotification(n)}
-                            className={`w-full px-4 py-3 text-left hover:bg-sky-50 ${
+                            className={`w-full px-4 py-3 text-left hover:bg-[color:var(--hover-subtle)] ${
                               unread ? "border-l-4 border-l-orange-500" : ""
                             }`}
                           >
@@ -421,7 +423,7 @@ export function DashboardShell({
                     <div className="border-t border-[color:var(--border)] px-4 py-2">
                       <Link
                         href="/admin/approval"
-                        className="block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-[color:var(--primary)] hover:bg-sky-50"
+                        className="block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-[color:var(--primary)] hover:bg-[color:var(--hover-subtle)]"
                         onClick={() => setNotifOpen(false)}
                       >
                         View all notifications
@@ -439,14 +441,14 @@ export function DashboardShell({
                   setUserOpen((v) => !v);
                   setNotifOpen(false);
                 }}
-                className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 pl-1 hover:bg-sky-50"
+                className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 pl-1 hover:bg-[color:var(--hover-subtle)]"
                 aria-label="Account menu"
               >
               {avatarUrl ? (
                 <img
                   src={apiAssetUrl(avatarUrl)}
                   alt=""
-                  className="h-8 w-8 rounded-full border border-[color:var(--border)] bg-white object-cover"
+                  className="h-8 w-8 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] object-cover"
                 />
               ) : (
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[#818cf8] to-[var(--primary)] text-xs font-semibold text-white">
@@ -465,7 +467,7 @@ export function DashboardShell({
               </button>
 
               {userOpen ? (
-                <div className="absolute right-0 z-50 mt-2 w-[220px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-[0_18px_48px_rgba(11,31,59,0.14)]">
+                <div className="absolute right-0 z-50 mt-2 w-[220px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_18px_48px_var(--shadow-elevated)]">
                   <div className="border-b border-[color:var(--border)] px-4 py-3">
                     <div className="truncate text-sm font-semibold text-[color:var(--text)]">{displayName}</div>
                     {headerRoleLabel.trim() ? (
@@ -476,7 +478,7 @@ export function DashboardShell({
                     {profileHref ? (
                       <Link
                         href={profileHref}
-                        className="block px-4 py-2.5 text-sm text-[color:var(--text)] hover:bg-sky-50"
+                        className="block px-4 py-2.5 text-sm text-[color:var(--text)] hover:bg-[color:var(--hover-subtle)]"
                         onClick={() => setUserOpen(false)}
                       >
                         Profile
@@ -492,7 +494,7 @@ export function DashboardShell({
                         setUserOpen(false);
                         void requestSignOut();
                       }}
-                      className="block w-full px-4 py-2.5 text-left text-sm text-[color:var(--text)] hover:bg-sky-50"
+                      className="block w-full px-4 py-2.5 text-left text-sm text-[color:var(--text)] hover:bg-[color:var(--hover-subtle)]"
                     >
                       Log out
                     </button>
@@ -529,7 +531,7 @@ function IconButton(props: {
       type="button"
       aria-label={props["aria-label"]}
       onClick={props.onClick}
-      className="rounded-lg p-2 text-[color:var(--text-muted)] hover:bg-sky-50"
+      className="rounded-lg p-2 text-[color:var(--text-muted)] hover:bg-[color:var(--hover-subtle)]"
     >
       {props.children}
     </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +9,10 @@ import {
   AdminAccountsTh,
   type AdminSortDir,
 } from "@/components/admin/admin-accounts-chrome";
+import {
+  AdminTablePagination,
+  useAdminTablePagination,
+} from "@/components/admin/admin-table-pagination";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconApprove } from "@/components/dashboard/page-header-icons";
@@ -21,6 +25,8 @@ type NotificationRow = {
   title: string;
   body: string;
   trainer_id: string | null;
+  tp_org_id?: string | null;
+  tpCompanyName?: string | null;
   is_read: number;
   created_at: string;
   isRead?: boolean;
@@ -30,9 +36,13 @@ type NotificationRow = {
   trainerLocation?: string | null;
   trainerAccountEmail?: string | null;
   trainerExpertiseLabel?: string | null;
+  approvalRole?: string | null;
+  accountStatus?: string | null;
 };
 
-type ApprovalSortKey = "name" | "expertise" | "verdict" | "created_at";
+type ApprovalSortKey = "name" | "role" | "verdict" | "created_at";
+
+const APPROVAL_ROLES = ["Trainer", "Employer", "Training Provider"] as const;
 type AiFilterValue = "" | "APPROVE" | "REJECT" | "MANUAL_REVIEW" | "PENDING";
 
 const AI_FILTER_OPTIONS: { value: AiFilterValue; label: string }[] = [
@@ -65,8 +75,28 @@ function parseRecommendation(body: string): "APPROVE" | "REJECT" | "MANUAL_REVIE
   return (m?.[1]?.toUpperCase() as "APPROVE" | "REJECT" | "MANUAL_REVIEW" | "") ?? "";
 }
 
+function isApprovedRow(n: NotificationRow): boolean {
+  return n.accountStatus === "APPROVED";
+}
+
+function aiVerdictForRow(n: NotificationRow): string {
+  if (isApprovedRow(n)) return "APPROVED";
+  if (n.type === "TP_SIGNUP" || n.tp_org_id) return "";
+  return parseRecommendation(n.body ?? "");
+}
+
 function displayName(n: NotificationRow) {
+  if (n.type === "TP_SIGNUP") {
+    return (n.tpCompanyName && String(n.tpCompanyName).trim()) || "Training provider";
+  }
   return (n.trainerFullName && String(n.trainerFullName).trim()) || parseTrainerName(n.body ?? "") || "Trainer";
+}
+
+function approvalRole(n: NotificationRow): string {
+  if (n.approvalRole?.trim()) return n.approvalRole.trim();
+  if (n.type === "TP_SIGNUP" || n.tp_org_id) return "Training Provider";
+  if (n.type.startsWith("CLIENT") || n.type === "CLIENT_SIGNUP") return "Employer";
+  return "Trainer";
 }
 
 function initialsFromName(name: string) {
@@ -79,31 +109,38 @@ function initialsFromName(name: string) {
   return initials || "T";
 }
 
-function AiVerdictPill({ rec }: { rec: string }) {
-  if (rec === "APPROVE") {
-    return (
-      <span className="inline-flex rounded-full bg-gradient-to-r from-sky-600 to-indigo-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-        Approve
-      </span>
-    );
-  }
-  if (rec === "REJECT") {
-    return (
-      <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-800">
-        Reject
-      </span>
-    );
-  }
-  if (rec === "MANUAL_REVIEW") {
-    return (
-      <span className="inline-flex rounded-full border border-[color:var(--border)] bg-[#f5f0e8] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#3d3429]">
-        Review
-      </span>
-    );
-  }
+function RoleLabel({ role }: { role: string }) {
+  return <span className="text-sm font-semibold text-[color:var(--text)]">{role}</span>;
+}
+
+function aiVerdictLabel(rec: string, n?: NotificationRow): string {
+  if (n && isApprovedRow(n)) return "Approved";
+  if (n && (n.type === "TP_SIGNUP" || n.tp_org_id)) return "—";
+  if (rec === "APPROVE") return "Approve";
+  if (rec === "REJECT") return "Reject";
+  if (rec === "MANUAL_REVIEW") return "Review";
+  return "Pending";
+}
+
+function aiVerdictTextClass(rec: string, n?: NotificationRow): string {
+  if (n && isApprovedRow(n)) return "text-emerald-700 dark:text-emerald-400";
+  if (rec === "APPROVE") return "text-emerald-700 dark:text-emerald-400";
+  if (rec === "REJECT") return "text-red-700 dark:text-red-400";
+  if (rec === "MANUAL_REVIEW") return "text-amber-700 dark:text-amber-400";
+  return "text-[color:var(--text-muted)]";
+}
+
+function AiVerdictLabel({ rec, row }: { rec: string; row?: NotificationRow }) {
   return (
-    <span className="inline-flex rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
-      Pending
+    <span
+      className={cn(
+        "text-sm font-semibold uppercase tracking-wide",
+        row && (row.type === "TP_SIGNUP" || row.tp_org_id) && !isApprovedRow(row)
+          ? "text-[color:var(--text-muted)]"
+          : aiVerdictTextClass(rec, row),
+      )}
+    >
+      {aiVerdictLabel(rec, row)}
     </span>
   );
 }
@@ -113,7 +150,7 @@ export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
-  const [expertiseFilter, setExpertiseFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [aiFilter, setAiFilter] = useState<AiFilterValue>("");
   const [sort, setSort] = useState<{ key: ApprovalSortKey; dir: AdminSortDir }>({
     key: "created_at",
@@ -144,19 +181,6 @@ export default function AdminNotificationsPage() {
     );
   }, []);
 
-  const expertiseOptions = useMemo(() => {
-    const tags = new Set<string>();
-    for (const n of rows ?? []) {
-      const label = n.trainerExpertiseLabel;
-      if (!label || label === "—") continue;
-      for (const part of label.split(",")) {
-        const t = part.trim();
-        if (t) tags.add(t);
-      }
-    }
-    return [...tags].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [rows]);
-
   const filteredSorted = useMemo(() => {
     const list = rows ?? [];
     const needle = q.trim().toLowerCase();
@@ -164,20 +188,20 @@ export default function AdminNotificationsPage() {
     if (needle) {
       filtered = filtered.filter((n) => {
         const name = displayName(n).toLowerCase();
-        const exp = (n.trainerExpertiseLabel ?? "").toLowerCase();
-        return name.includes(needle) || exp.includes(needle) || (n.body ?? "").toLowerCase().includes(needle);
+        const role = approvalRole(n).toLowerCase();
+        return name.includes(needle) || role.includes(needle) || (n.body ?? "").toLowerCase().includes(needle);
       });
     }
-    if (expertiseFilter) {
-      const tag = expertiseFilter.toLowerCase();
-      filtered = filtered.filter((n) =>
-        (n.trainerExpertiseLabel ?? "").toLowerCase().includes(tag),
-      );
+    if (roleFilter) {
+      filtered = filtered.filter((n) => approvalRole(n) === roleFilter);
     }
     if (aiFilter) {
       filtered = filtered.filter((n) => {
-        const rec = parseRecommendation(n.body ?? "");
-        if (aiFilter === "PENDING") return !rec;
+        const rec = aiVerdictForRow(n);
+        if (aiFilter === "PENDING") {
+          if (n.type === "TP_SIGNUP" || n.tp_org_id) return false;
+          return !rec;
+        }
         return rec === aiFilter;
       });
     }
@@ -185,9 +209,12 @@ export default function AdminNotificationsPage() {
     const { key: sortKey, dir: sortDir } = sort;
     const out = [...filtered];
     out.sort((a, b) => {
+      const queueRank = (isApprovedRow(a) ? 1 : 0) - (isApprovedRow(b) ? 1 : 0);
+      if (queueRank !== 0) return queueRank;
+
       let cmp = 0;
-      const recA = parseRecommendation(a.body ?? "");
-      const recB = parseRecommendation(b.body ?? "");
+      const recA = aiVerdictForRow(a);
+      const recB = aiVerdictForRow(b);
       const verdictRank = (r: string) =>
         r === "REJECT" ? 0 : r === "MANUAL_REVIEW" ? 1 : r === "APPROVE" ? 2 : 3;
       switch (sortKey) {
@@ -197,10 +224,8 @@ export default function AdminNotificationsPage() {
             numeric: true,
           });
           break;
-        case "expertise":
-          cmp = (a.trainerExpertiseLabel ?? "—").localeCompare(b.trainerExpertiseLabel ?? "—", undefined, {
-            sensitivity: "base",
-          });
+        case "role":
+          cmp = approvalRole(a).localeCompare(approvalRole(b), undefined, { sensitivity: "base" });
           break;
         case "verdict":
           cmp = verdictRank(recA) - verdictRank(recB);
@@ -214,7 +239,16 @@ export default function AdminNotificationsPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return out;
-  }, [rows, q, expertiseFilter, aiFilter, sort]);
+  }, [rows, q, roleFilter, aiFilter, sort]);
+
+  const { paginated, ...pageProps } = useAdminTablePagination(filteredSorted, [
+    q,
+    roleFilter,
+    aiFilter,
+    sort.key,
+    sort.dir,
+    rows?.length,
+  ]);
 
   async function markAllRead() {
     setBusy(true);
@@ -237,7 +271,9 @@ export default function AdminNotificationsPage() {
         method: "PATCH",
         credentials: "include",
       });
-      if (n.trainer_id) {
+      if (n.tp_org_id) {
+        nav(`/admin/tp-orgs/${n.tp_org_id}`);
+      } else if (n.trainer_id) {
         nav(`/admin/trainers/${n.trainer_id}/review`);
       } else {
         setRows((prev) =>
@@ -251,27 +287,11 @@ export default function AdminNotificationsPage() {
     }
   }
 
-  async function dismissNotification(e: MouseEvent<HTMLButtonElement>, n: NotificationRow) {
-    e.preventDefault();
-    e.stopPropagation();
-    setBusy(true);
-    try {
-      const res = await apiFetch(`/api/admin/notifications/${n.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) return;
-      setRows((prev) => (prev ?? []).filter((r) => r.id !== n.id));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <DashboardPageHeader
         title="Approval"
-        description="Trainers ready for approval or manual review"
+        description="Accounts awaiting approval or manual review"
         icon={<PageHeaderIconApprove />}
         right={
           <div className="flex items-center gap-2">
@@ -301,7 +321,7 @@ export default function AdminNotificationsPage() {
       />
 
       <section
-        className="rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-sm"
+        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm"
         aria-label="Search and filters"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -312,18 +332,18 @@ export default function AdminNotificationsPage() {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name or expertise…"
-              className="w-full rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+              placeholder="Search by name or role…"
+              className="w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
             />
           </label>
           <div className="flex flex-wrap gap-2 lg:shrink-0">
             <FilterSelect
-              label="Expertise"
-              value={expertiseFilter}
-              onChange={setExpertiseFilter}
+              label="Role"
+              value={roleFilter}
+              onChange={setRoleFilter}
               options={[
-                { value: "", label: "All expertise" },
-                ...expertiseOptions.map((tag) => ({ value: tag, label: tag })),
+                { value: "", label: "All roles" },
+                ...APPROVAL_ROLES.map((role) => ({ value: role, label: role })),
               ]}
             />
             <FilterSelect
@@ -337,31 +357,23 @@ export default function AdminNotificationsPage() {
       </section>
 
       <section
-        className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white shadow-sm"
+        className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm"
         aria-label="Approval queue"
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-[color:var(--border)] bg-[#faf8f5]">
+              <tr className="border-b border-[color:var(--border)] bg-[color:var(--table-header-bg)]">
                 <AdminAccountsSortTh columnKey="name" activeKey={sort.key} dir={sort.dir} onSort={onSort}>
                   Name
                 </AdminAccountsSortTh>
                 <AdminAccountsSortTh
-                  columnKey="expertise"
+                  columnKey="role"
                   activeKey={sort.key}
                   dir={sort.dir}
                   onSort={onSort}
                 >
-                  Expertise
-                </AdminAccountsSortTh>
-                <AdminAccountsSortTh
-                  columnKey="verdict"
-                  activeKey={sort.key}
-                  dir={sort.dir}
-                  onSort={onSort}
-                >
-                  AI result
+                  Role
                 </AdminAccountsSortTh>
                 <AdminAccountsSortTh
                   columnKey="created_at"
@@ -371,27 +383,34 @@ export default function AdminNotificationsPage() {
                 >
                   Submitted
                 </AdminAccountsSortTh>
-                <AdminAccountsTh className="text-center">Actions</AdminAccountsTh>
+                <AdminAccountsSortTh
+                  columnKey="verdict"
+                  activeKey={sort.key}
+                  dir={sort.dir}
+                  onSort={onSort}
+                >
+                  AI result
+                </AdminAccountsSortTh>
               </tr>
             </thead>
             <tbody>
               {rows === null ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-[color:var(--text-muted)]" colSpan={5}>
+                  <td className="px-4 py-10 text-center text-[color:var(--text-muted)]" colSpan={4}>
                     Loading…
                   </td>
                 </tr>
               ) : filteredSorted.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-[color:var(--text-muted)]" colSpan={5}>
+                  <td className="px-4 py-10 text-center text-[color:var(--text-muted)]" colSpan={4}>
                     {rows.length === 0 ? "No approvals yet." : "No rows match your search."}
                   </td>
                 </tr>
               ) : (
-                filteredSorted.map((n) => {
+                paginated.map((n) => {
                   const unread = !(n.isRead ?? Boolean(n.is_read));
                   const name = displayName(n);
-                  const rec = parseRecommendation(n.body ?? "");
+                  const rec = aiVerdictForRow(n);
                   const interactive = !busy;
                   return (
                     <tr
@@ -409,10 +428,10 @@ export default function AdminNotificationsPage() {
                       className={cn(
                         "border-b border-[color:var(--border)] last:border-b-0",
                         interactive &&
-                          "cursor-pointer hover:bg-sky-50/40 focus-visible:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
+                          "cursor-pointer hover:bg-[color:var(--hover-subtle)] focus-visible:bg-[color:var(--hover-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--primary)]",
                         busy && "cursor-wait opacity-70",
                         unread &&
-                          "border-l-4 border-l-amber-400 bg-amber-50 hover:bg-amber-50/90",
+                          "border-l-4 border-l-amber-400 bg-[color:var(--row-highlight-bg)] hover:bg-[color:var(--row-highlight-hover)]",
                       )}
                     >
                       <td className="px-4 py-4 align-middle">
@@ -427,35 +446,14 @@ export default function AdminNotificationsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="max-w-[220px] px-4 py-4 align-middle text-[color:var(--text)]">
-                        <span className="line-clamp-2">
-                          {n.trainerExpertiseLabel && n.trainerExpertiseLabel !== "—"
-                            ? n.trainerExpertiseLabel
-                            : "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 align-middle">
-                        <AiVerdictPill rec={rec} />
+                      <td className="px-4 py-4 align-middle text-[color:var(--text)]">
+                        <RoleLabel role={approvalRole(n)} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 align-middle text-[color:var(--text-muted)]">
                         {formatDate(n.created_at)}
                       </td>
-                      <td className="px-4 py-4 text-center align-middle">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            title="Remove from list (permanent)"
-                            disabled={busy}
-                            className={cn(
-                              "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-red-600 hover:bg-red-50",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200",
-                              busy && "pointer-events-none opacity-50",
-                            )}
-                            onClick={(e) => void dismissNotification(e, n)}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                      <td className="px-4 py-4 align-middle">
+                        <AiVerdictLabel rec={rec} row={n} />
                       </td>
                     </tr>
                   );
@@ -464,6 +462,7 @@ export default function AdminNotificationsPage() {
             </tbody>
           </table>
         </div>
+        <AdminTablePagination {...pageProps} />
       </section>
     </div>
   );
@@ -487,7 +486,7 @@ function FilterSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
-        className="rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-3 pr-8 text-sm text-[color:var(--text)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+        className="rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2.5 pl-3 pr-8 text-sm text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
       >
         {options.map((opt) => (
           <option key={opt.value || "__all"} value={opt.value}>
@@ -520,25 +519,6 @@ function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
       <circle cx="11" cy="11" r="7" />
       <path strokeLinecap="round" d="M20 20l-3.3-3.3" />
-    </svg>
-  );
-}
-
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6h12zM10 11v6M14 11v6"
-      />
     </svg>
   );
 }

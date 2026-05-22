@@ -12,13 +12,13 @@ export function DashboardBanner(props: {
   secondaryLabel?: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-[color:var(--border)] bg-[#e8ecf4] px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm font-medium text-[color:var(--text)]">{props.message}</p>
       <div className="flex flex-wrap gap-2">
         {props.secondaryHref && props.secondaryLabel ? (
           <Link
             href={props.secondaryHref}
-            className="rounded-lg border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-semibold text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
           >
             {props.secondaryLabel}
           </Link>
@@ -80,9 +80,11 @@ export function GradientStatCard(props: {
   /** Tailwind gradient utility classes, applied to the icon tile and the value text. */
   gradient: string;
   icon: React.ReactNode;
+  /** When set, the whole card navigates to this route on click. */
+  href?: string;
 }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-gradient-to-br from-white via-[#f4f6ff] to-[#e3e8fb] p-4 shadow-[0_8px_22px_rgba(11,31,59,0.06)]">
+  const card = (
+    <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-gradient-to-br from-[color:var(--card-gradient-from)] via-[color:var(--card-gradient-via)] to-[color:var(--card-gradient-to)] p-4 shadow-[0_8px_22px_var(--shadow-color)]">
       <div
         className={`grid h-10 w-10 place-items-center rounded-xl text-white shadow-md ${props.gradient}`}
       >
@@ -101,11 +103,22 @@ export function GradientStatCard(props: {
       </div>
     </div>
   );
+
+  if (!props.href) return card;
+
+  return (
+    <Link
+      href={props.href}
+      className="block rounded-2xl transition-[box-shadow,transform] hover:shadow-[0_12px_28px_rgba(11,31,59,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 active:scale-[0.99]"
+    >
+      {card}
+    </Link>
+  );
 }
 
 export function AnalyticsChartCard(props: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-md">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-md">
       <div className="text-sm font-bold text-[color:var(--text)]">{props.title}</div>
       {props.children}
     </div>

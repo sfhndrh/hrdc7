@@ -8,7 +8,7 @@ export default function LoginPage() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen bg-[#f4f7fc]" />;
+    return <div className="min-h-screen bg-[color:var(--page-bg)]" />;
   }
 
   if (user) {
@@ -18,7 +18,7 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden font-sans">
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-100/90 via-[#f4f7fc] to-[color:var(--surface-muted)]"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-100/90 via-[color:var(--page-bg)] to-[color:var(--surface-muted)] dark:from-slate-900/80 dark:via-[color:var(--page-bg)]"
         aria-hidden
       />
       <div
@@ -45,7 +45,7 @@ export default function LoginPage() {
           <p className="mt-1 max-w-sm text-sm text-[color:var(--text-muted)]">Sign in to your account</p>
         </div>
 
-        <div className="w-full max-w-[420px] rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-[0_25px_50px_-12px_rgba(11,31,59,0.12)] sm:p-7">
+        <div className="w-full max-w-[420px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_25px_50px_-12px_var(--shadow-elevated)] sm:p-7">
           <LoginForm />
         </div>
 
@@ -55,10 +55,14 @@ export default function LoginPage() {
             Register as{" "}
             <Link href="/register/trainer" className="font-medium text-sky-800 underline hover:text-sky-950">
               Trainer
-            </Link>{" "}
-            or{" "}
+            </Link>
+            ,{" "}
+            <Link href="/register/tp" className="font-medium text-sky-800 underline hover:text-sky-950">
+              Training provider
+            </Link>
+            , or{" "}
             <Link href="/register/client" className="font-medium text-sky-800 underline hover:text-sky-950">
-              Company
+              Employer
             </Link>
           </p>
         </div>

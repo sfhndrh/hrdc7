@@ -29,7 +29,7 @@ export function AdminAccountsChrome({
       <DashboardPageHeader title={title} description={description} icon={pageIcon} />
 
       <section
-        className="rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-sm"
+        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm"
         aria-label="Search"
       >
         <label className="relative block">
@@ -40,13 +40,13 @@ export function AdminAccountsChrome({
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded-xl border border-sky-100 bg-sky-50/70 py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+            className="w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2.5 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
           />
         </label>
       </section>
 
       <section
-        className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white shadow-sm"
+        className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm"
         aria-label="Results"
       >
         {children}
@@ -66,7 +66,7 @@ export function AdminAccountsTh({
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left align-middle text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0f2942]",
+        "px-4 py-3 text-left align-middle text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--table-header-text)]",
         className,
       )}
     >
@@ -90,7 +90,7 @@ export function AdminAccountsSortTh({
 }) {
   const active = activeKey === columnKey;
   return (
-    <th className="px-4 py-3 text-left align-middle text-[11px] font-semibold tracking-[0.12em] text-[#0f2942]">
+    <th className="px-4 py-3 text-left align-middle text-[11px] font-semibold tracking-[0.12em] text-[color:var(--table-header-text)]">
       <button
         type="button"
         onClick={() => onSort(columnKey)}
@@ -112,7 +112,7 @@ function SortChevrons({ active, dir }: { active: boolean; dir: AdminSortDir }) {
       <span
         className={cn(
           "block h-2",
-          active && dir === "asc" ? "text-[#0f2942]" : "text-[#0f2942]/35",
+          active && dir === "asc" ? "text-[color:var(--table-header-text)]" : "text-[color:var(--table-header-text)] opacity-35",
         )}
       >
         ▲
@@ -120,11 +120,30 @@ function SortChevrons({ active, dir }: { active: boolean; dir: AdminSortDir }) {
       <span
         className={cn(
           "block h-2",
-          active && dir === "desc" ? "text-[#0f2942]" : "text-[#0f2942]/35",
+          active && dir === "desc" ? "text-[color:var(--table-header-text)]" : "text-[color:var(--table-header-text)] opacity-35",
         )}
       >
         ▼
       </span>
+    </span>
+  );
+}
+
+export function EmployerAccountStatusPill({
+  status,
+}: {
+  status: "ACTIVE" | "SUSPENDED";
+}) {
+  if (status === "SUSPENDED") {
+    return (
+      <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+        Suspended
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+      Active
     </span>
   );
 }

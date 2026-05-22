@@ -1,12 +1,22 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("theme") === "dark") {
+            document.documentElement.classList.add("dark");
+            document.documentElement.style.colorScheme = "dark";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MY Certified Trainer</title>
     <meta
       name="description"
-      content="Marketplace for HRDC-certified trainers and companies"
+      content="Marketplace for HRDC-certified trainers and employers"
     />
   </head>
   <body>

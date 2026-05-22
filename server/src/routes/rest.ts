@@ -14,6 +14,16 @@ import {
   signAuthToken,
 } from "../auth.js";
 import { getApiBaseUrl } from "../config/env.js";
+import { respondIfClientSuspended } from "../lib/client-suspension.js";
+import { respondIfTrainerSuspended } from "../lib/trainer-suspension.js";
+import {
+  isClientProfileComplete,
+  mapClientRegistration,
+  parseProfileDataJson,
+  patchClientSchema,
+  profileTypeLabel,
+  registerClientSchema,
+} from "../lib/client-profile.js";
 import {
   COMPANY_PROFILE_PHOTO_DIR,
   deleteUploadByPublicUrl,
@@ -153,10 +163,30 @@ restRouter.post("/auth/login", async (req, res) => {
     res.status(401).json({ error: "Invalid email or password." });
     return;
   }
+  if (user.role === "CLIENT") {
+    if (await respondIfClientSuspended(user.id, res)) return;
+  }
+  if (user.role === "TRAINER") {
+    if (await respondIfTrainerSuspended(user.id, res)) return;
+  }
+  if (user.role === "TRAINING_PROVIDER") {
+    const tp = await queryOne<{ accountStatus: string | null; suspensionReason: string | null }>(
+      `SELECT "accountStatus", "suspensionReason" FROM "TpOrganization" WHERE "userId" = ?`,
+      [user.id],
+    );
+    if (tp?.accountStatus === "SUSPENDED") {
+      res.status(403).json({
+        code: "ACCOUNT_SUSPENDED",
+        error: "Your training provider account has been suspended by an administrator.",
+        suspensionReason: tp.suspensionReason?.trim() ?? "",
+      });
+      return;
+    }
+  }
   const token = signAuthToken({
     sub: user.id,
     email: user.email,
-    role: user.role as "ADMIN" | "TRAINER" | "CLIENT",
+    role: user.role as "ADMIN" | "TRAINER" | "CLIENT" | "TRAINING_PROVIDER",
   });
   setAuthCookie(res, token);
   res.json({
@@ -181,32 +211,6 @@ restRouter.get("/auth/session", (req, res) => {
   });
 });
 
-const registerClientSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  companyName: z.string().min(2),
-  industry: z.string().min(2),
-  contactEmail: z.string().email(),
-  phone: z.string().min(5),
-  street: z.string().trim().min(2).max(500),
-  city: z.string().trim().min(2).max(120),
-  state: z.string().trim().min(1).max(120),
-  profilePhoto: z.preprocess(
-    (v) => (v == null || v === "" ? null : String(v).trim()),
-    z
-      .string()
-      .max(600)
-      .nullable()
-      .refine(
-        (s) =>
-          s === null ||
-          s.startsWith("/api/uploads/company-photos/") ||
-          /^https:\/\//i.test(s),
-        "Invalid profile photo",
-      ),
-  ),
-});
-
 restRouter.post("/register/client", async (req, res) => {
   const parsed = registerClientSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -227,7 +231,15 @@ restRouter.post("/register/client", async (req, res) => {
     return;
   }
   const passwordHash = await bcrypt.hash(data.password, 12);
-  const addressFormatted = `${data.street}\n${data.city}\n${data.state}`;
+  const mapped = mapClientRegistration({
+    email,
+    fullName: data.fullName,
+    phone: data.phone,
+    profileType: data.profileType,
+    profileData: data.profileData as Record<string, unknown>,
+    contactEmail: data.contactEmail,
+  });
+  const profileComplete = isClientProfileComplete(data.profileType, mapped);
   const uid = newId();
   const cid = newId();
   const t = isoNow();
@@ -238,20 +250,22 @@ restRouter.post("/register/client", async (req, res) => {
       client,
     );
     await execute(
-      `INSERT INTO "Client" ("id","userId","companyName","regNumber","industry","contactName","contactEmail","phone","address","profilePhoto","profileComplete","createdAt","updatedAt")
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO "Client" ("id","userId","companyName","regNumber","industry","contactName","contactEmail","phone","address","profilePhoto","profileType","profileData","profileComplete","createdAt","updatedAt")
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         cid,
         uid,
-        data.companyName,
-        "",
-        data.industry,
-        "",
-        data.contactEmail.trim().toLowerCase(),
-        data.phone,
-        addressFormatted,
+        mapped.companyName,
+        mapped.regNumber,
+        mapped.industry,
+        mapped.contactName,
+        mapped.contactEmail,
+        mapped.phone,
+        mapped.address,
         data.profilePhoto,
-        true,
+        mapped.profileType,
+        mapped.profileDataJson,
+        profileComplete,
         t,
         t,
       ],
@@ -402,25 +416,13 @@ restRouter.post("/register/trainer", async (req, res) => {
     .json({ message: "Registration submitted. We will review your certificate shortly." });
 });
 
-const patchClientSchema = z.object({
-  companyName: z.string().min(2),
-  regNumber: z.string().min(2),
-  industry: z.string().min(2),
-  contactName: z.preprocess(
-    (v) => (v == null ? "" : String(v)),
-    z.string().trim().max(120),
-  ),
-  contactEmail: z.string().email(),
-  phone: z.string().min(5),
-  address: z.string().optional().nullable(),
-});
-
 restRouter.patch("/client/profile", requireAuth, async (req, res) => {
   const u = req.authUser!;
   if (u.role !== "CLIENT") {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+  if (await respondIfClientSuspended(u.sub, res)) return;
   const parsed = patchClientSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -430,24 +432,28 @@ restRouter.patch("/client/profile", requireAuth, async (req, res) => {
     return;
   }
   const d = parsed.data;
-  const ce = d.contactEmail.trim().toLowerCase();
-  const profileComplete =
-    d.companyName.length >= 2 &&
-    d.regNumber.length >= 2 &&
-    d.industry.length >= 2 &&
-    ce.length >= 3 &&
-    d.phone.length >= 5;
+  const mapped = mapClientRegistration({
+    email: u.email,
+    fullName: d.fullName,
+    phone: d.phone,
+    profileType: d.profileType,
+    profileData: d.profileData as Record<string, unknown>,
+    contactEmail: d.contactEmail,
+  });
+  const profileComplete = isClientProfileComplete(d.profileType, mapped);
   await execute(
-    `UPDATE "Client" SET "companyName"=?, "regNumber"=?, "industry"=?, "contactName"=?, "contactEmail"=?, "phone"=?, "address"=?, "profileComplete"=?, "updatedAt"=?
+    `UPDATE "Client" SET "companyName"=?, "regNumber"=?, "industry"=?, "contactName"=?, "contactEmail"=?, "phone"=?, "address"=?, "profileType"=?, "profileData"=?, "profileComplete"=?, "updatedAt"=?
      WHERE "userId"=?`,
     [
-      d.companyName,
-      d.regNumber,
-      d.industry,
-      d.contactName || "",
-      ce,
-      d.phone,
-      d.address?.trim() || null,
+      mapped.companyName,
+      mapped.regNumber,
+      mapped.industry,
+      mapped.contactName,
+      mapped.contactEmail,
+      mapped.phone,
+      mapped.address,
+      mapped.profileType,
+      mapped.profileDataJson,
       profileComplete,
       isoNow(),
       u.sub,
@@ -689,6 +695,7 @@ restRouter.patch("/client/profile-photo", requireAuth, async (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+  if (await respondIfClientSuspended(u.sub, res)) return;
   const parsed = profilePhotoUrlSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid payload" });
@@ -803,6 +810,7 @@ restRouter.get("/trainer/me", requireAuth, async (req, res) => {
     res.json({ trainer: null, isAdminViewer: true });
     return;
   }
+  if (await respondIfTrainerSuspended(u.sub, res)) return;
   const row = await queryOne<Record<string, unknown>>(
     `SELECT * FROM "Trainer" WHERE "userId" = ?`,
     [u.sub],
@@ -924,6 +932,7 @@ restRouter.get("/client/me", requireAuth, async (req, res) => {
     res.json({ client: null, isAdminViewer: true });
     return;
   }
+  if (await respondIfClientSuspended(u.sub, res)) return;
   const client = await queryOne<Record<string, unknown>>(
     `SELECT c.*, u."email" as "userEmail",
         s."id" as "sub_id", s."status" as "sub_status", s."planType" as "sub_planType", s."amount" as "sub_amount",
@@ -953,6 +962,10 @@ restRouter.get("/client/me", requireAuth, async (req, res) => {
           approvedBy: client.sub_approvedBy,
         }
       : null;
+  const profileType =
+    typeof client.profileType === "string" && client.profileType
+      ? client.profileType
+      : "COMPANY";
   res.json({
     client: {
       id: client.id,
@@ -965,7 +978,13 @@ restRouter.get("/client/me", requireAuth, async (req, res) => {
       phone: client.phone,
       address: client.address,
       profilePhoto: client.profilePhoto ?? null,
+      profileType,
+      profileData: parseProfileDataJson(client.profileData),
       profileComplete: Boolean(client.profileComplete),
+      accountStatus: client.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+      suspensionReason:
+        typeof client.suspensionReason === "string" ? client.suspensionReason : null,
+      suspendedAt: typeof client.suspendedAt === "string" ? client.suspendedAt : null,
       createdAt: client.createdAt,
       updatedAt: client.updatedAt,
       user: { email: client.userEmail },
@@ -1033,11 +1052,12 @@ restRouter.get("/client/dashboard", requireAuth, async (req, res) => {
       companyName: null,
       subscriptionLabel: null,
       profileLabel: null,
-      trainersListed: null,
+      coursesListed: null,
       subActive: false,
     });
     return;
   }
+  if (await respondIfClientSuspended(u.sub, res)) return;
   const row = await queryOne<{
     companyName: string;
     profileComplete: boolean;
@@ -1061,9 +1081,12 @@ restRouter.get("/client/dashboard", requireAuth, async (req, res) => {
   if (subActive) subscriptionLabel = "Pro";
   else if (row?.subStatus === "PROOF_UPLOADED") subscriptionLabel = "Proof uploaded";
   else if (row?.subStatus === "PENDING_PAYMENT") subscriptionLabel = "Pending payment";
-  const trainersListed = asCount(
+  const coursesListed = asCount(
     await queryOne<{ c: number | string }>(
-      `SELECT count(*)::int as c FROM "Trainer" WHERE "status" = 'APPROVED'`,
+      `SELECT count(*)::int as c
+       FROM "TpCourse" c
+       JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+       WHERE c."isPublished" = true AND o."status" = 'APPROVED'`,
     ),
   );
   res.json({
@@ -1072,40 +1095,33 @@ restRouter.get("/client/dashboard", requireAuth, async (req, res) => {
     subscriptionLabel,
     subscriptionExpiresAt: subActive ? row?.subExpires ?? null : null,
     profileLabel,
-    trainersListed,
+    coursesListed,
     subActive,
   });
 });
 
 restRouter.get("/admin/dashboard-stats", requireRoles(["ADMIN"]), async (_req, res) => {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const since = sevenDaysAgo.toISOString();
-  /** Rows in the admin approval queue (same source as /admin/notifications); decreases when a notification is deleted. */
+  /** Trainers awaiting admin approve/reject (not already decided). */
   const pendingApprovals = asCount(
-    await queryOne<{ c: number | string }>(`SELECT count(*)::int as c FROM notifications`),
+    await queryOne<{ c: number | string }>(
+      `SELECT count(*)::int as c FROM "Trainer" WHERE "status" IN ('PENDING', 'UNDER_REVIEW')`,
+    ),
   );
   const activeSubscriptions = asCount(
     await queryOne<{ c: number | string }>(
       `SELECT count(*)::int as c FROM "Subscription" WHERE "status" = 'ACTIVE'`,
     ),
   );
-  const pendingSubscriptionFlow = asCount(
+  /** Employer subscription payments awaiting admin approve/reject. */
+  const pendingPaymentApprovals = asCount(
     await queryOne<{ c: number | string }>(
       `SELECT count(*)::int as c FROM "Subscription" WHERE "status" IN ('PENDING_PAYMENT','PROOF_UPLOADED')`,
-    ),
-  );
-  const newUsersWeek = asCount(
-    await queryOne<{ c: number | string }>(
-      `SELECT count(*)::int as c FROM "User" WHERE "createdAt" >= ?`,
-      [since],
     ),
   );
   res.json({
     pendingApprovals,
     activeSubscriptions,
-    pendingSubscriptionFlow,
-    newUsersWeek,
+    pendingPaymentApprovals,
   });
 });
 
@@ -1313,6 +1329,58 @@ restRouter.get("/client/trainers/:id", requireRoles(["CLIENT", "ADMIN"]), async 
   });
 });
 
+function serializeClientBrowseCourse(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    title: row.title,
+    courseCode: row.courseCode,
+    category: row.category,
+    description: row.description,
+    learningOutcomes: row.learningOutcomes,
+    duration: row.duration,
+    deliveryMode: row.deliveryMode,
+    hrdcClaimable: row.hrdcClaimable,
+    courseFee: Number(row.courseFee ?? 0),
+    maxParticipants: Number(row.maxParticipants ?? 0),
+    language: row.language,
+    skillLevel: row.skillLevel,
+    trainingLocation: row.trainingLocation ?? null,
+    materialsNote: row.materialsNote ?? null,
+    providerName: row.providerName ?? row.providername ?? "",
+    tpOrgId: row.tpOrgId ?? null,
+    brochureUrl: row.brochureUrl ?? null,
+    slidesUrl: row.slidesUrl ?? null,
+    sampleMaterialsUrl: row.sampleMaterialsUrl ?? null,
+  };
+}
+
+/** Published courses from approved training providers for employer browse. */
+restRouter.get("/client/courses", requireRoles(["CLIENT", "ADMIN"]), async (_req, res) => {
+  const rows = await queryAll<Record<string, unknown>>(
+    `SELECT c.*, o."companyName" AS "providerName", o."id" AS "tpOrgId"
+     FROM "TpCourse" c
+     JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+     WHERE c."isPublished" = true AND o."status" = 'APPROVED'
+     ORDER BY c."updatedAt" DESC`,
+  );
+  res.json({ courses: rows.map(serializeClientBrowseCourse) });
+});
+
+restRouter.get("/client/courses/:id", requireRoles(["CLIENT", "ADMIN"]), async (req, res) => {
+  const row = await queryOne<Record<string, unknown>>(
+    `SELECT c.*, o."companyName" AS "providerName", o."id" AS "tpOrgId"
+     FROM "TpCourse" c
+     JOIN "TpOrganization" o ON o."id" = c."tpOrgId"
+     WHERE c."id" = ? AND c."isPublished" = true AND o."status" = 'APPROVED'`,
+    [req.params.id],
+  );
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ course: serializeClientBrowseCourse(row) });
+});
+
 restRouter.get("/admin/trainers", requireRoles(["ADMIN"]), async (_req, res) => {
   const rows = await queryAll<{
     id: string;
@@ -1378,6 +1446,10 @@ restRouter.get("/admin/trainers/:id", requireRoles(["ADMIN"]), async (req, res) 
       approvedAt: row.approvedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      accountStatus: row.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+      suspensionReason:
+        typeof row.suspensionReason === "string" ? row.suspensionReason : null,
+      suspendedAt: typeof row.suspendedAt === "string" ? row.suspendedAt : null,
       user: { email: userEmail },
     },
   });
@@ -1420,71 +1492,183 @@ restRouter.post(
 );
 
 restRouter.patch("/admin/trainers/:id/approve", requireRoles(["ADMIN"]), async (req, res) => {
+  const trainerId = req.params.id;
   await execute(
     `UPDATE "Trainer" SET "status" = 'APPROVED', "approvedAt" = ? WHERE "id" = ?`,
-    [new Date().toISOString(), req.params.id],
+    [new Date().toISOString(), trainerId],
   );
   res.json({ message: "Trainer approved" });
 });
 
 restRouter.patch("/admin/trainers/:id/reject", requireRoles(["ADMIN"]), async (req, res) => {
+  const trainerId = req.params.id;
   const adminNote = (req.body as { adminNote?: unknown } | undefined)?.adminNote;
   const note = adminNote == null || adminNote === "" ? null : String(adminNote);
   await execute(`UPDATE "Trainer" SET "status" = 'REJECTED', "adminNote" = ? WHERE "id" = ?`, [
     note,
-    req.params.id,
+    trainerId,
   ]);
+  await execute(`DELETE FROM notifications WHERE trainer_id = ?`, [trainerId]);
   res.json({ message: "Trainer rejected" });
 });
 
+function mapAdminApprovalRow(row: Record<string, unknown>) {
+  let trainerExpertiseLabel = "—";
+  const expertiseRaw = row.trainerExpertiseJson ?? row.trainerexpertisejson ?? "[]";
+  try {
+    const ex = asStringArray(JSON.parse(String(expertiseRaw)));
+    trainerExpertiseLabel = ex.slice(0, 6).join(", ") || "—";
+  } catch {
+    /* keep — */
+  }
+  const rawPhoto = row.trainerProfilePhoto ?? row.trainerprofilephoto;
+  const profilePhoto =
+    typeof rawPhoto === "string" && rawPhoto.trim() ? rawPhoto.trim() : null;
+  const notifType = String(row.type ?? "");
+  const tpOrgId = row.tp_org_id != null ? String(row.tp_org_id) : "";
+  const trainerStatus = String(row.trainerStatus ?? row.trainerstatus ?? "");
+  const tpOrgStatus = String(row.tpOrgStatus ?? row.tporgstatus ?? "");
+  const accountStatus = tpOrgId ? tpOrgStatus : trainerStatus;
+  const approvalRole =
+    notifType === "TP_SIGNUP" || tpOrgId
+      ? "Training Provider"
+      : notifType.startsWith("CLIENT") || notifType === "CLIENT_SIGNUP"
+        ? "Employer"
+        : "Trainer";
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    trainer_id: row.trainer_id,
+    tp_org_id: row.tp_org_id ?? null,
+    is_read: row.is_read,
+    created_at: row.created_at,
+    isRead: Boolean(row.is_read),
+    approvalRole,
+    accountStatus,
+    tpCompanyName: row.tpCompanyName ?? row.tpcompanyname ?? null,
+    trainerFullName: row.trainerFullName ?? row.trainerfullname ?? null,
+    trainerPhone: row.trainerPhone ?? row.trainerphone ?? null,
+    trainerProfilePhoto: profilePhoto,
+    trainerLocation: row.trainerLocation ?? row.trainerlocation ?? null,
+    trainerAccountEmail: row.trainerAccountEmail ?? row.traineraccountemail ?? null,
+    trainerExpertiseLabel,
+  };
+}
+
+function dedupeApprovalNotificationRows(rows: Record<string, unknown>[]) {
+  const byTrainer = new Map<string, Record<string, unknown>>();
+  const withoutTrainer: Record<string, unknown>[] = [];
+
+  for (const row of rows) {
+    const trainerId = row.trainer_id != null ? String(row.trainer_id) : "";
+    if (!trainerId) {
+      withoutTrainer.push(row);
+      continue;
+    }
+    const prev = byTrainer.get(trainerId);
+    if (!prev || String(row.created_at) > String(prev.created_at)) {
+      byTrainer.set(trainerId, row);
+    }
+  }
+
+  return [...byTrainer.values(), ...withoutTrainer];
+}
+
+function approvalQueueRank(row: Record<string, unknown>): number {
+  const tpOrgId = row.tp_org_id != null ? String(row.tp_org_id) : "";
+  const status = tpOrgId
+    ? String(row.tpOrgStatus ?? row.tporgstatus ?? "")
+    : String(row.trainerStatus ?? row.trainerstatus ?? "");
+  return status === "APPROVED" ? 1 : 0;
+}
+
+function sortApprovalQueueRows(rows: Record<string, unknown>[]) {
+  return rows.sort((a, b) => {
+    const rankDiff = approvalQueueRank(a) - approvalQueueRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return String(b.created_at).localeCompare(String(a.created_at));
+  });
+}
+
 restRouter.get("/admin/notifications", requireRoles(["ADMIN"]), async (_req, res) => {
-  const rows = await queryAll<Record<string, unknown>>(
-    `SELECT n."id", n."type", n."title", n."body", n."trainer_id", n."is_read", n."created_at",
+  const fromNotifications = await queryAll<Record<string, unknown>>(
+    `SELECT n."id", n."type", n."title", n."body", n."trainer_id", n."tp_org_id", n."is_read", n."created_at",
               t."fullName" AS "trainerFullName",
               t."phone" AS "trainerPhone",
               t."profilePhoto" AS "trainerProfilePhoto",
               t."stateOrLocation" AS "trainerLocation",
               t."expertise" AS "trainerExpertiseJson",
-              u."email" AS "trainerAccountEmail"
+              t."status" AS "trainerStatus",
+              u."email" AS "trainerAccountEmail",
+              o."companyName" AS "tpCompanyName",
+              o."status" AS "tpOrgStatus"
        FROM notifications n
        LEFT JOIN "Trainer" t ON t."id" = n.trainer_id
        LEFT JOIN "User" u ON u."id" = t."userId"
+       LEFT JOIN "TpOrganization" o ON o."id" = n.tp_org_id
+       WHERE (n.tp_org_id IS NOT NULL AND n.type = 'TP_SIGNUP' AND o."status" IN ('PENDING', 'UNDER_REVIEW', 'APPROVED'))
+          OR (t."id" IS NOT NULL AND t."status" IN ('PENDING', 'UNDER_REVIEW', 'APPROVED'))
        ORDER BY n.created_at DESC
-       LIMIT 100`,
+       LIMIT 200`,
   );
 
-  res.json(
-    rows.map((row) => {
-      let trainerExpertiseLabel = "—";
-      const expertiseRaw =
-        row.trainerExpertiseJson ?? row.trainerexpertisejson ?? "[]";
-      try {
-        const ex = asStringArray(JSON.parse(String(expertiseRaw)));
-        trainerExpertiseLabel = ex.slice(0, 6).join(", ") || "—";
-      } catch {
-        /* keep — */
-      }
-      const rawPhoto = row.trainerProfilePhoto ?? row.trainerprofilephoto;
-      const profilePhoto =
-        typeof rawPhoto === "string" && rawPhoto.trim() ? rawPhoto.trim() : null;
-      return {
-        id: row.id,
-        type: row.type,
-        title: row.title,
-        body: row.body,
-        trainer_id: row.trainer_id,
-        is_read: row.is_read,
-        created_at: row.created_at,
-        isRead: Boolean(row.is_read),
-        trainerFullName: row.trainerFullName ?? row.trainerfullname ?? null,
-        trainerPhone: row.trainerPhone ?? row.trainerphone ?? null,
-        trainerProfilePhoto: profilePhoto,
-        trainerLocation: row.trainerLocation ?? row.trainerlocation ?? null,
-        trainerAccountEmail: row.trainerAccountEmail ?? row.traineraccountemail ?? null,
-        trainerExpertiseLabel,
-      };
-    }),
+  const approvedTrainersNoNotif = await queryAll<Record<string, unknown>>(
+    `SELECT ('approved-trainer-' || t."id") AS "id",
+              'TRAINER_APPROVED' AS "type",
+              'Trainer approved' AS "title",
+              '' AS "body",
+              t."id" AS "trainer_id",
+              NULL AS "tp_org_id",
+              true AS "is_read",
+              COALESCE(t."approvedAt", t."updatedAt") AS "created_at",
+              t."fullName" AS "trainerFullName",
+              t."phone" AS "trainerPhone",
+              t."profilePhoto" AS "trainerProfilePhoto",
+              t."stateOrLocation" AS "trainerLocation",
+              t."expertise" AS "trainerExpertiseJson",
+              t."status" AS "trainerStatus",
+              u."email" AS "trainerAccountEmail",
+              NULL AS "tpCompanyName",
+              NULL AS "tpOrgStatus"
+       FROM "Trainer" t
+       JOIN "User" u ON u."id" = t."userId"
+       WHERE t."status" = 'APPROVED'
+         AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.trainer_id = t."id")`,
   );
+
+  const approvedTpNoNotif = await queryAll<Record<string, unknown>>(
+    `SELECT ('approved-tp-' || o."id") AS "id",
+              'TP_SIGNUP' AS "type",
+              'Training provider approved' AS "title",
+              '' AS "body",
+              NULL AS "trainer_id",
+              o."id" AS "tp_org_id",
+              true AS "is_read",
+              COALESCE(o."approvedAt", o."updatedAt") AS "created_at",
+              NULL AS "trainerFullName",
+              NULL AS "trainerPhone",
+              NULL AS "trainerProfilePhoto",
+              NULL AS "trainerLocation",
+              NULL AS "trainerExpertiseJson",
+              NULL AS "trainerStatus",
+              NULL AS "trainerAccountEmail",
+              o."companyName" AS "tpCompanyName",
+              o."status" AS "tpOrgStatus"
+       FROM "TpOrganization" o
+       WHERE o."status" = 'APPROVED'
+         AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.tp_org_id = o."id")`,
+  );
+
+  const merged = dedupeApprovalNotificationRows([
+    ...fromNotifications,
+    ...approvedTrainersNoNotif,
+    ...approvedTpNoNotif,
+  ]);
+  sortApprovalQueueRows(merged);
+
+  res.json(merged.map(mapAdminApprovalRow));
 });
 
 restRouter.patch("/admin/notifications/:id/read", requireRoles(["ADMIN"]), async (req, res) => {
@@ -1514,6 +1698,8 @@ restRouter.get("/admin/clients", requireRoles(["ADMIN"]), async (_req, res) => {
     industry: string;
     phone: string;
     profilePhoto: string | null;
+    profileType: string | null;
+    accountStatus: string | null;
     subStatus: string | null;
     subExpires: string | null;
   }>(
@@ -1528,7 +1714,8 @@ restRouter.get("/admin/clients", requireRoles(["ADMIN"]), async (_req, res) => {
     companies: rows.map((c) => ({
       id: c.id,
       companyName: c.companyName,
-      subtitle: c.userEmail,
+      subtitle: profileTypeLabel(c.profileType),
+      profileType: c.profileType ?? "COMPANY",
       industry: c.industry,
       email: c.userEmail,
       phone: c.phone,
@@ -1539,6 +1726,7 @@ restRouter.get("/admin/clients", requireRoles(["ADMIN"]), async (_req, res) => {
       )
         ? "pro"
         : "free",
+      accountStatus: c.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
     })),
   });
 });
@@ -1586,6 +1774,10 @@ restRouter.get("/admin/clients/:id", requireRoles(["ADMIN"]), async (req, res) =
       address: row.address,
       profilePhoto: row.profilePhoto ?? null,
       profileComplete: Boolean(row.profileComplete),
+      accountStatus: row.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+      suspensionReason:
+        typeof row.suspensionReason === "string" ? row.suspensionReason : null,
+      suspendedAt: typeof row.suspendedAt === "string" ? row.suspendedAt : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       user: { email: row.userEmail },
@@ -1593,6 +1785,126 @@ restRouter.get("/admin/clients/:id", requireRoles(["ADMIN"]), async (req, res) =
     },
   });
 });
+
+const suspendClientSchema = z.object({
+  reason: z.string().trim().min(3, "Enter a reason (at least 3 characters)").max(2000),
+});
+
+restRouter.post(
+  "/admin/clients/:id/suspend",
+  requireRoles(["ADMIN"]),
+  async (req, res) => {
+    const parsed = suspendClientSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid payload",
+        details: parsed.error.flatten(),
+      });
+      return;
+    }
+    const client = await queryOne<{ id: string; accountStatus: string | null }>(
+      `SELECT "id", "accountStatus" FROM "Client" WHERE "id" = ?`,
+      [req.params.id],
+    );
+    if (!client) {
+      res.status(404).json({ error: "Employer not found" });
+      return;
+    }
+    if (client.accountStatus === "SUSPENDED") {
+      res.status(409).json({ error: "Employer is already suspended" });
+      return;
+    }
+    const t = isoNow();
+    await execute(
+      `UPDATE "Client" SET "accountStatus"='SUSPENDED', "suspensionReason"=?, "suspendedAt"=?, "updatedAt"=? WHERE "id"=?`,
+      [parsed.data.reason, t, t, client.id],
+    );
+    res.json({ ok: true, accountStatus: "SUSPENDED" as const });
+  },
+);
+
+restRouter.post(
+  "/admin/clients/:id/reactivate",
+  requireRoles(["ADMIN"]),
+  async (req, res) => {
+    const client = await queryOne<{ id: string; accountStatus: string | null }>(
+      `SELECT "id", "accountStatus" FROM "Client" WHERE "id" = ?`,
+      [req.params.id],
+    );
+    if (!client) {
+      res.status(404).json({ error: "Employer not found" });
+      return;
+    }
+    if (client.accountStatus !== "SUSPENDED") {
+      res.status(409).json({ error: "Employer is not suspended" });
+      return;
+    }
+    const t = isoNow();
+    await execute(
+      `UPDATE "Client" SET "accountStatus"='ACTIVE', "suspensionReason"=NULL, "suspendedAt"=NULL, "updatedAt"=? WHERE "id"=?`,
+      [t, client.id],
+    );
+    res.json({ ok: true, accountStatus: "ACTIVE" as const });
+  },
+);
+
+restRouter.post(
+  "/admin/trainers/:id/suspend",
+  requireRoles(["ADMIN"]),
+  async (req, res) => {
+    const parsed = suspendClientSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid payload",
+        details: parsed.error.flatten(),
+      });
+      return;
+    }
+    const trainer = await queryOne<{ id: string; accountStatus: string | null }>(
+      `SELECT "id", "accountStatus" FROM "Trainer" WHERE "id" = ?`,
+      [req.params.id],
+    );
+    if (!trainer) {
+      res.status(404).json({ error: "Trainer not found" });
+      return;
+    }
+    if (trainer.accountStatus === "SUSPENDED") {
+      res.status(409).json({ error: "Trainer is already suspended" });
+      return;
+    }
+    const t = isoNow();
+    await execute(
+      `UPDATE "Trainer" SET "accountStatus"='SUSPENDED', "suspensionReason"=?, "suspendedAt"=?, "updatedAt"=? WHERE "id"=?`,
+      [parsed.data.reason, t, t, trainer.id],
+    );
+    res.json({ ok: true, accountStatus: "SUSPENDED" as const });
+  },
+);
+
+restRouter.post(
+  "/admin/trainers/:id/reactivate",
+  requireRoles(["ADMIN"]),
+  async (req, res) => {
+    const trainer = await queryOne<{ id: string; accountStatus: string | null }>(
+      `SELECT "id", "accountStatus" FROM "Trainer" WHERE "id" = ?`,
+      [req.params.id],
+    );
+    if (!trainer) {
+      res.status(404).json({ error: "Trainer not found" });
+      return;
+    }
+    if (trainer.accountStatus !== "SUSPENDED") {
+      res.status(409).json({ error: "Trainer is not suspended" });
+      return;
+    }
+    const t = isoNow();
+    await execute(
+      `UPDATE "Trainer" SET "accountStatus"='ACTIVE', "suspensionReason"=NULL, "suspendedAt"=NULL, "updatedAt"=? WHERE "id"=?`,
+      [t, trainer.id],
+    );
+    res.json({ ok: true, accountStatus: "ACTIVE" as const });
+  },
+);
 
 restRouter.get("/admin/subscriptions", requireRoles(["ADMIN"]), async (_req, res) => {
   const rows = await queryAll<{

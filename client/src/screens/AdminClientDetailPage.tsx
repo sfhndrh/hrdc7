@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import type { ReactNode } from "react";
 import { Link } from "@/components/link";
 import { Navigate, useParams } from "react-router-dom";
 
+import { AdminClientActionsSection } from "@/components/admin/admin-client-actions";
 import { SubscriptionPlanPill } from "@/components/admin/admin-accounts-chrome";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconBuilding } from "@/components/dashboard/page-header-icons";
-import { Badge } from "@/components/ui/badge";
-
 function subscriptionIsPro(status: string, expiresAt: string | null): boolean {
   if (status !== "ACTIVE") return false;
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return false;
@@ -18,6 +17,7 @@ function subscriptionIsPro(status: string, expiresAt: string | null): boolean {
 }
 
 type ClientDetail = {
+  id: string;
   companyName: string;
   regNumber: string;
   industry: string;
@@ -26,6 +26,9 @@ type ClientDetail = {
   phone: string;
   address: string | null;
   profileComplete: boolean;
+  accountStatus: "ACTIVE" | "SUSPENDED";
+  suspensionReason: string | null;
+  suspendedAt: string | null;
   createdAt: string;
   user: { email: string };
   subscription: {
@@ -42,8 +45,9 @@ export default function AdminCompanyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
 
-  useEffect(() => {
+  const loadClient = useCallback(() => {
     if (!id) return;
+    setLoading(true);
     void apiFetch(`/api/admin/clients/${id}`, { credentials: "include" })
       .then((r) => {
         if (r.status === 404) {
@@ -57,6 +61,10 @@ export default function AdminCompanyDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    loadClient();
+  }, [loadClient]);
 
   if (!id) return null;
   if (loading) {
@@ -86,29 +94,19 @@ export default function AdminCompanyDetailPage() {
           href="/admin/clients"
           className="inline-flex items-center gap-1 text-sm text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
         >
-          <span aria-hidden>←</span> Back to companies
+          <span aria-hidden>←</span> Back to employers
         </Link>
       </div>
 
       <DashboardPageHeader
         title={row.companyName}
-        description="Company account · Admin view"
+        description="Employer account"
         icon={<PageHeaderIconBuilding />}
-        right={
-          <Badge tone={row.profileComplete ? "green" : "yellow"}>
-            {row.profileComplete ? "Profile complete" : "Incomplete profile"}
-          </Badge>
-        }
       />
-      <div className="flex flex-wrap gap-1.5">
-        {row.industry ? <Pill tone="white">{row.industry}</Pill> : null}
-        {row.regNumber ? <Pill tone="white">SSM {row.regNumber}</Pill> : null}
-        <SubscriptionPlanPill tier={planTier} />
-      </div>
 
-      <Section title="Company information">
+      <Section title="Employer information">
         <FieldGrid>
-          <ReadOnlyField label="Company name" value={row.companyName} />
+          <ReadOnlyField label="Employer name" value={row.companyName} />
           <ReadOnlyField label="Registration number (SSM / BRN)" value={row.regNumber} />
           <ReadOnlyField label="Industry" value={row.industry} />
           <ReadOnlyField label="Member since" value={memberSince} />
@@ -141,7 +139,6 @@ export default function AdminCompanyDetailPage() {
           />
           {row.subscription ? (
             <>
-              <ReadOnlyField label="Plan type" value={row.subscription.planType} />
               <ReadOnlyField
                 label="Amount"
                 value={`MYR ${Number(row.subscription.amount).toFixed(2)}`}
@@ -162,13 +159,21 @@ export default function AdminCompanyDetailPage() {
           ) : null}
         </FieldGrid>
       </Section>
+
+      <AdminClientActionsSection
+        clientId={row.id}
+        accountStatus={row.accountStatus}
+        suspensionReason={row.suspensionReason}
+        suspendedAt={row.suspendedAt}
+        onUpdated={loadClient}
+      />
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         {title}
       </h2>
@@ -208,26 +213,12 @@ function ReadOnlyField({
 
   return (
     <div
-      className={`rounded-xl border border-sky-100 bg-sky-50/70 p-4 ${wide ? "md:col-span-2" : ""}`}
+      className={`rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-4 ${wide ? "md:col-span-2" : ""}`}
     >
       <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
         {label}
       </div>
       <div className="mt-2">{body}</div>
     </div>
-  );
-}
-
-function Pill({ children, tone }: { children: React.ReactNode; tone: "green" | "white" }) {
-  const toneClass: Record<typeof tone, string> = {
-    green: "border-emerald-300 bg-emerald-100 text-emerald-700",
-    white: "border-[color:var(--border)] bg-white text-[color:var(--text)]",
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${toneClass[tone]}`}
-    >
-      {children}
-    </span>
   );
 }

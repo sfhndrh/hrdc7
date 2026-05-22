@@ -27,7 +27,7 @@ export function ProfilePhotoCircle({
 
   return (
     <div
-      className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-sky-100 font-semibold text-sky-700 ${sizeClass}`}
+      className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-[color:var(--avatar-placeholder-bg)] font-semibold text-[color:var(--avatar-placeholder-text)] ${sizeClass}`}
     >
       {showImage ? (
         <img

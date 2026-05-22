@@ -46,7 +46,7 @@ export function CertificatePreviewBlock(props: {
   const title = props.title ?? "Certificate preview";
   const pdfLabel = props.pdfLinkLabel ?? "Open / download";
   return (
-    <div className="rounded-xl border border-[color:var(--border)] bg-white p-4">
+    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
       <div className="text-sm font-semibold">{title}</div>
       {props.certFileUrl ? (
         isPdf(props.certFileUrl) ? (
@@ -65,7 +65,7 @@ export function CertificatePreviewBlock(props: {
           <img
             src={apiAssetUrl(props.certFileUrl)}
             alt="Trainer certificate"
-            className="mt-3 w-full rounded-lg border border-[color:var(--border)] bg-white"
+            className="mt-3 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
           />
         )
       ) : (
@@ -99,8 +99,8 @@ export function AiVerificationReportPanel(props: {
   const rec = verification?.ai_recommendation ?? null;
 
   return (
-    <div className="rounded-xl border bg-white p-4">
-      <div className="text-sm font-semibold">AI Verification Report</div>
+    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+      <div className="text-sm font-semibold text-[color:var(--text)]">AI Verification Report</div>
 
       {loading ? (
         <div className="py-6 text-sm text-[color:var(--text-muted)]">Loading…</div>
@@ -122,19 +122,35 @@ export function AiVerificationReportPanel(props: {
           <div
             className={`mt-3 rounded-xl border-l-4 p-4 ${
               rec === "APPROVE"
-                ? "border-green-500 bg-green-50"
+                ? "border-green-500 bg-[color:var(--verify-approve-bg)]"
                 : rec === "REJECT"
-                  ? "border-red-500 bg-red-50"
-                  : "border-yellow-500 bg-yellow-50"
+                  ? "border-red-500 bg-[color:var(--verify-reject-bg)]"
+                  : "border-amber-500 bg-[color:var(--verify-review-bg)]"
             }`}
           >
-            <div className="text-sm font-semibold text-[color:var(--text)]">
+            <div
+              className={`text-sm font-semibold ${
+                rec === "APPROVE"
+                  ? "text-[color:var(--verify-approve-text)]"
+                  : rec === "REJECT"
+                    ? "text-[color:var(--verify-reject-text)]"
+                    : "text-[color:var(--verify-review-text)]"
+              }`}
+            >
               AI Recommendation: {String(rec ?? "").replace(/_/g, " ")}
             </div>
-            <div className="mt-1 text-xs text-[color:var(--text-muted)]">
+            <div
+              className={`mt-1 text-xs ${
+                rec === "APPROVE"
+                  ? "text-[color:var(--verify-approve-muted)]"
+                  : rec === "REJECT"
+                    ? "text-[color:var(--verify-reject-muted)]"
+                    : "text-[color:var(--verify-review-muted)]"
+              }`}
+            >
               {confidence} / 100 confidence
             </div>
-            <div className="mt-2 h-2 w-full rounded bg-gray-200">
+            <div className="mt-2 h-2 w-full rounded bg-[color:var(--verify-progress-track)]">
               <div
                 className="h-2 rounded bg-[color:var(--primary)]"
                 style={{ width: `${Math.max(0, Math.min(100, confidence))}%` }}
@@ -144,7 +160,7 @@ export function AiVerificationReportPanel(props: {
 
           {flags.length ? (
             <div className="mt-4">
-              <div className="text-sm font-semibold">Issues detected</div>
+              <div className="text-sm font-semibold text-[color:var(--text)]">Issues detected</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {flags.map((f) => (
                   <Badge key={f} tone="red">
@@ -155,7 +171,7 @@ export function AiVerificationReportPanel(props: {
             </div>
           ) : null}
 
-          <div className="mt-4 overflow-visible rounded-xl border border-[color:var(--border)] bg-white shadow-sm">
+          <div className="mt-4 overflow-visible rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm">
             <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-gradient-to-r from-[#0b1f3b] to-[#1e3a8a] px-4 py-3">
               <div className="text-sm font-semibold text-white">Extracted data</div>
               <div className="text-xs font-semibold text-white/80">Verified fields & checks</div>
@@ -213,7 +229,7 @@ export function AiVerificationReportPanel(props: {
             <div className="text-xs font-semibold tracking-widest text-[color:var(--text-muted)]">
               AI ANALYSIS
             </div>
-            <div className="mt-2 rounded-lg bg-gray-50 p-4 text-sm text-[color:var(--text)]">
+            <div className="mt-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--verify-analysis-bg)] p-4 text-sm text-[color:var(--text)]">
               {verification.summary ?? ""}
             </div>
           </div>
@@ -245,31 +261,31 @@ function TableRow(props: {
   helpText?: string;
 }) {
   return (
-    <div className="group grid grid-cols-[1fr_1fr_84px] items-center gap-3 px-4 py-3 text-sm transition hover:bg-[#f8fafc]">
-      <div className="flex items-center gap-2 font-medium text-[#0b1f3b]">
+    <div className="group grid grid-cols-[1fr_1fr_84px] items-center gap-3 px-4 py-3 text-sm transition hover:bg-[color:var(--hover-subtle)]">
+      <div className="flex items-center gap-2 font-medium text-[color:var(--text)]">
         <span>{props.label}</span>
         {props.helpText ? <InfoTip text={props.helpText} /> : null}
       </div>
-      <div className="truncate font-semibold text-[#111827]">
-        {props.value?.trim?.() ? props.value : <span className="font-normal text-slate-400">—</span>}
+      <div className="truncate font-semibold text-[color:var(--text)]">
+        {props.value?.trim?.() ? props.value : <span className="font-normal text-[color:var(--text-muted)]">—</span>}
       </div>
       <div className="flex items-center justify-end">
         {props.status === "ok" ? (
-          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-600 text-white">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[color:var(--verify-pass-bg)] px-3 py-1 text-xs font-semibold text-[color:var(--verify-pass-text)] ring-1 ring-[color:var(--verify-pass-icon)]/40">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--verify-pass-icon)] text-white">
               ✓
             </span>
             Pass
           </span>
         ) : props.status === "bad" ? (
-          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-800 ring-1 ring-red-200">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-red-600 text-white">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[color:var(--verify-fail-bg)] px-3 py-1 text-xs font-semibold text-[color:var(--verify-fail-text)] ring-1 ring-[color:var(--verify-fail-icon)]/40">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--verify-fail-icon)] text-white">
               ×
             </span>
             Fail
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+          <span className="inline-flex items-center rounded-full bg-[color:var(--verify-neutral-bg)] px-3 py-1 text-xs font-semibold text-[color:var(--verify-neutral-text)] ring-1 ring-[color:var(--verify-neutral-ring)]">
             —
           </span>
         )}
@@ -285,12 +301,12 @@ function InfoTip(props: { text: string }) {
         tabIndex={0}
         role="button"
         aria-label="Field info"
-        className="grid h-5 w-5 place-items-center rounded-full border border-slate-200 bg-white text-[11px] font-bold text-slate-600 shadow-sm outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-300"
+        className="grid h-5 w-5 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[11px] font-bold text-[color:var(--text-muted)] shadow-sm outline-none transition hover:bg-[color:var(--hover-subtle)] focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
       >
         i
       </span>
       <span
-        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-72 -translate-x-1/2 whitespace-normal rounded-lg border border-slate-200 bg-white p-3 text-xs font-medium leading-relaxed text-slate-700 shadow-lg group-hover:block group-focus-within:block"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-72 -translate-x-1/2 whitespace-normal rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-xs font-medium leading-relaxed text-[color:var(--text)] shadow-lg group-hover:block group-focus-within:block"
       >
         {props.text}
       </span>

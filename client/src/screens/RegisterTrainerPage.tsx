@@ -8,7 +8,7 @@ export default function TrainerRegisterPage() {
       description="Create your trainer profile."
       wideCard
       otherRegisterHref="/register/client"
-      otherRegisterLabel="Company"
+      otherRegisterLabel="Employer"
     >
       <TrainerRegisterForm />
     </RegisterPageShell>

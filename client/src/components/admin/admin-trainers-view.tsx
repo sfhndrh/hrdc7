@@ -7,9 +7,12 @@ import type { ReactNode } from "react";
 import {
   AdminAccountsChrome,
   AdminAccountsSortTh,
-  AdminAccountsTh,
   type AdminSortDir,
 } from "@/components/admin/admin-accounts-chrome";
+import {
+  AdminTablePagination,
+  useAdminTablePagination,
+} from "@/components/admin/admin-table-pagination";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { cn } from "@/components/ui/button";
 import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
@@ -90,6 +93,8 @@ export function AdminTrainersView({
     return list;
   }, [filtered, sort]);
 
+  const { paginated, ...pageProps } = useAdminTablePagination(sorted, [q, sort.key, sort.dir]);
+
   return (
     <AdminAccountsChrome
       title="Trainers"
@@ -102,7 +107,7 @@ export function AdminTrainersView({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-[color:var(--border)] bg-[#faf8f5]">
+            <tr className="border-b border-[color:var(--border)] bg-[color:var(--table-header-bg)]">
               <AdminAccountsSortTh
                 columnKey="fullName"
                 activeKey={sort.key}
@@ -135,7 +140,6 @@ export function AdminTrainersView({
               >
                 Status
               </AdminAccountsSortTh>
-              <AdminAccountsTh className="text-center">Actions</AdminAccountsTh>
             </tr>
           </thead>
           <tbody>
@@ -143,13 +147,13 @@ export function AdminTrainersView({
               <tr>
                 <td
                   className="px-4 py-10 text-center text-[color:var(--text-muted)]"
-                  colSpan={5}
+                  colSpan={4}
                 >
                   No trainers match your search.
                 </td>
               </tr>
             ) : (
-              sorted.map((t) => (
+              paginated.map((t) => (
                 <tr
                   key={t.id}
                   role="link"
@@ -162,8 +166,8 @@ export function AdminTrainersView({
                     }
                   }}
                   className={cn(
-                    "cursor-pointer border-b border-[color:var(--border)] last:border-b-0 hover:bg-sky-50/40",
-                    "focus-visible:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
+                    "cursor-pointer border-b border-[color:var(--border)] last:border-b-0 hover:bg-[color:var(--hover-subtle)]",
+                    "focus-visible:bg-[color:var(--hover-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300",
                   )}
                 >
                   <td className="px-4 py-4 align-middle">
@@ -190,27 +194,13 @@ export function AdminTrainersView({
                   <td className="px-4 py-4 align-middle">
                     <TrainerStatusPill status={t.status} />
                   </td>
-                  <td className="px-4 py-4 text-center align-middle">
-                    <div className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        title="Remove (coming soon)"
-                        className={cn(
-                          "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-red-600 hover:bg-red-50",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200",
-                        )}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+      <AdminTablePagination {...pageProps} />
     </AdminAccountsChrome>
   );
 }
@@ -253,23 +243,4 @@ function TrainerStatusPill({ status }: { status: AdminTrainerRow["status"] }) {
         </span>
       );
   }
-}
-
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6h12zM10 11v6M14 11v6"
-      />
-    </svg>
-  );
 }

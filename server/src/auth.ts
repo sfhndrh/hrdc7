@@ -1,6 +1,8 @@
 import type { CookieOptions, NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { getJwtSecret, isProduction } from "./config/env.js";
+import { respondIfClientSuspended } from "./lib/client-suspension.js";
+import { respondIfTrainerSuspended } from "./lib/trainer-suspension.js";
 import type { Role } from "./db/types.js";
 
 const COOKIE = "auth_token";
@@ -83,7 +85,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireRoles(roles: Role[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     const u = attachUser(req);
     if (!u) {
       res.status(401).json({ error: "Unauthorized" });
@@ -93,6 +95,12 @@ export function requireRoles(roles: Role[]) {
     if (!roles.includes(u.role)) {
       res.status(403).json({ error: "Forbidden" });
       return;
+    }
+    if (u.role === "CLIENT" && roles.includes("CLIENT")) {
+      if (await respondIfClientSuspended(u.sub, res)) return;
+    }
+    if (u.role === "TRAINER" && roles.includes("TRAINER")) {
+      if (await respondIfTrainerSuspended(u.sub, res)) return;
     }
     next();
   };

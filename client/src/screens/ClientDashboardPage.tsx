@@ -19,7 +19,7 @@ export default function ClientDashboardPage() {
     subscriptionLabel: string | null;
     subscriptionExpiresAt?: string | null;
     profileLabel: string | null;
-    trainersListed: number | null;
+    coursesListed: number | null;
     subActive: boolean;
   } | null>(null);
 
@@ -30,10 +30,10 @@ export default function ClientDashboardPage() {
   }, []);
 
   const isAdmin = data?.isAdmin ?? user?.role === "ADMIN";
-  const companyName = data?.companyName ?? user?.email ?? "Company";
+  const companyName = data?.companyName ?? user?.email ?? "Employer";
   const subscriptionLabel = data?.subscriptionLabel ?? "—";
   const profileLabel = data?.profileLabel ?? "—";
-  const trainersListed = data?.trainersListed ?? 0;
+  const coursesListed = data?.coursesListed ?? 0;
   const subActive = data?.subActive ?? false;
   const subExpiresAt = data?.subscriptionExpiresAt ?? null;
   const subValidUntil = formatExpiryDate(subExpiresAt);
@@ -42,9 +42,9 @@ export default function ClientDashboardPage() {
     <div className="space-y-6">
       {subActive ? null : (
         <DashboardBanner
-          message="Subscribe to unlock phone, email, portfolio, and certificates for each trainer."
-          secondaryHref="/client/trainers"
-          secondaryLabel="Browse trainers"
+          message="Subscribe to unlock courses details."
+          secondaryHref="/client/courses"
+          secondaryLabel="Browse Courses"
           primaryHref="/client/subscription"
           primaryLabel="Subscribe"
         />
@@ -61,24 +61,27 @@ export default function ClientDashboardPage() {
               ? subValidUntil
                 ? `Valid until ${subValidUntil}`
                 : "Valid until —"
-              : "Subscribe to unlock full trainer details"
+              : "Subscribe to unlock full course details"
           }
           gradient="bg-gradient-to-br from-orange-400 via-rose-500 to-pink-600"
           icon={<StarIcon />}
+          href={isAdmin ? undefined : "/client/subscription"}
         />
         <GradientStatCard
-          title="Total Certified Trainers"
-          value={isAdmin ? "—" : String(trainersListed)}
-          trend={isAdmin ? "Sign in as a company to see totals" : "Approved trainers you can discover"}
+          title="Total Courses"
+          value={isAdmin ? "—" : String(coursesListed)}
+          trend={isAdmin ? "Sign in as an employer to see totals" : "Published courses you can browse"}
           gradient="bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-800"
           icon={<PeopleIcon />}
+          href={isAdmin ? undefined : "/client/courses"}
         />
         <GradientStatCard
-          title="Company profile"
+          title="Profile"
           value={isAdmin ? "—" : profileLabel}
           trend="Complete registration details to browse"
           gradient="bg-gradient-to-br from-teal-400 via-emerald-500 to-cyan-700"
           icon={<BuildingIcon />}
+          href={isAdmin ? undefined : "/client/profile"}
         />
       </div>
 

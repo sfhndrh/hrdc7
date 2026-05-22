@@ -409,7 +409,7 @@ export default function TrainerCalendarPage() {
               type="button"
               onClick={handlePrev}
               aria-label="Previous"
-              className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--border)] bg-white text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+              className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
             >
               <ChevronLeftIcon />
             </button>
@@ -417,14 +417,14 @@ export default function TrainerCalendarPage() {
               type="button"
               onClick={handleNext}
               aria-label="Next"
-              className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--border)] bg-white text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+              className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
             >
               <ChevronRightIcon />
             </button>
             <button
               type="button"
               onClick={handleToday}
-              className="h-9 rounded-md border border-[color:var(--border)] bg-white px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+              className="h-9 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
             >
               Today
             </button>
@@ -433,7 +433,7 @@ export default function TrainerCalendarPage() {
             </h2>
           </div>
 
-          <div className="inline-flex rounded-md border border-[color:var(--border)] bg-white p-0.5 text-sm">
+          <div className="inline-flex rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-0.5 text-sm">
             <button
               type="button"
               onClick={() => setViewMode("month")}
@@ -552,7 +552,7 @@ function DayCell(props: {
   isLastRow: boolean;
 }) {
   const dim = props.isCurrentMonth
-    ? "bg-white"
+    ? "bg-[color:var(--surface)]"
     : "bg-[color:var(--surface-muted)]/40";
   const textTone = props.isCurrentMonth
     ? "text-[color:var(--text)]"
@@ -722,7 +722,7 @@ function WeekView(props: {
                 onClick={() => props.onDayClick(key)}
                 aria-label="Add activity"
                 title="Add activity"
-                className="grid h-7 w-7 place-items-center rounded-md border border-[color:var(--border)] bg-white text-[color:var(--text)] hover:bg-white"
+                className="grid h-7 w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--hover-subtle)]"
               >
                 <PlusIcon className="h-3.5 w-3.5" />
               </button>
@@ -774,7 +774,7 @@ function EventRow(props: { event: CalendarEvent; onClick: () => void }) {
         e.stopPropagation();
         props.onClick();
       }}
-      className={`flex w-full flex-col items-start gap-0.5 rounded-md border-l-4 bg-white px-2 py-1.5 text-left shadow-sm hover:bg-[color:var(--surface-muted)] ${meta.border}`}
+      className={`flex w-full flex-col items-start gap-0.5 rounded-md border-l-4 bg-[color:var(--surface)] px-2 py-1.5 text-left shadow-sm hover:bg-[color:var(--surface-muted)] ${meta.border}`}
     >
       <span className="flex w-full items-center gap-1.5">
         {props.event.reminder !== "none" ? (
@@ -912,7 +912,7 @@ function EventModal(props: {
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="flex w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        className="flex w-full max-w-lg flex-col rounded-t-2xl bg-[color:var(--surface)] shadow-xl sm:rounded-2xl"
       >
         <div className="flex items-start justify-between border-b border-[color:var(--border)] px-5 py-4">
           <div>
@@ -1061,7 +1061,7 @@ function EventModal(props: {
 }
 
 const inputCls =
-  "block w-full rounded-md border border-[color:var(--border)] bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm focus:border-[color:var(--accent)] focus:outline-none focus:ring-1 focus:ring-[color:var(--accent)]";
+  "block w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)] shadow-sm focus:border-[color:var(--accent)] focus:outline-none focus:ring-1 focus:ring-[color:var(--accent)]";
 
 function Field(props: {
   label: string;
@@ -1095,7 +1095,7 @@ function ToastStack(props: {
       {props.toasts.map((t) => (
         <div
           key={t.id}
-          className="pointer-events-auto flex items-start gap-3 rounded-xl border border-[color:var(--border)] bg-white p-3 shadow-lg"
+          className="pointer-events-auto flex items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-lg"
         >
           <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500 text-white">
             <BellIcon className="h-4 w-4" />

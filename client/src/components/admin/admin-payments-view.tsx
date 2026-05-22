@@ -9,6 +9,10 @@ import {
   AdminAccountsSortTh,
   type AdminSortDir,
 } from "@/components/admin/admin-accounts-chrome";
+import {
+  AdminTablePagination,
+  useAdminTablePagination,
+} from "@/components/admin/admin-table-pagination";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { Button, cn } from "@/components/ui/button";
 
@@ -30,7 +34,7 @@ export type AdminPaymentRow = {
   profilePhoto?: string | null;
 };
 
-type PaymentSortKey = "companyName" | "paymentType" | "amount" | "date" | "statusKey";
+type PaymentSortKey = "companyName" | "amount" | "date" | "statusKey";
 
 const PAYMENT_STATUS_ORDER: Record<string, number> = {
   PENDING_PAYMENT: 0,
@@ -121,7 +125,6 @@ export function AdminPaymentsView({
           cmp = a.dateMs - b.dateMs;
           break;
         case "companyName":
-        case "paymentType":
           cmp = a[sortKey].localeCompare(b[sortKey], undefined, {
             sensitivity: "base",
             numeric: true,
@@ -135,6 +138,8 @@ export function AdminPaymentsView({
     return list;
   }, [filtered, sort]);
 
+  const { paginated, ...pageProps } = useAdminTablePagination(sorted, [q, sort.key, sort.dir]);
+
   return (
     <AdminAccountsChrome
       title="Payments"
@@ -145,29 +150,21 @@ export function AdminPaymentsView({
       onSearchChange={setQ}
     >
       {error ? (
-        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="mb-3 rounded-md border border-red-200 bg-[color:var(--danger-hover-bg)] px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[880px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-[color:var(--border)] bg-[#faf8f5]">
+            <tr className="border-b border-[color:var(--border)] bg-[color:var(--table-header-bg)]">
               <AdminAccountsSortTh
                 columnKey="companyName"
                 activeKey={sort.key}
                 dir={sort.dir}
                 onSort={onSort}
               >
-                Company
-              </AdminAccountsSortTh>
-              <AdminAccountsSortTh
-                columnKey="paymentType"
-                activeKey={sort.key}
-                dir={sort.dir}
-                onSort={onSort}
-              >
-                Type
+                Employer
               </AdminAccountsSortTh>
               <AdminAccountsSortTh
                 columnKey="amount"
@@ -218,17 +215,17 @@ export function AdminPaymentsView({
               <tr>
                 <td
                   className="px-4 py-10 text-center text-[color:var(--text-muted)]"
-                  colSpan={8}
+                  colSpan={7}
                 >
                   No payments match your search.
                 </td>
               </tr>
             ) : (
-              sorted.map((p) => (
+              paginated.map((p) => (
                 <tr
                   key={p.id}
                   className={cn(
-                    "border-b border-[color:var(--border)] bg-white last:border-b-0",
+                    "border-b border-[color:var(--border)] last:border-b-0 hover:bg-[color:var(--hover-subtle)]",
                   )}
                 >
                   <td className="px-4 py-4 align-middle">
@@ -243,13 +240,10 @@ export function AdminPaymentsView({
                           {p.companyName}
                         </div>
                         <div className="mt-0.5 line-clamp-2 text-xs text-[color:var(--text-muted)]">
-                          <span className="capitalize">{p.paymentType}</span> · {p.subtitle}
+                          {p.subtitle}
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-4 align-middle text-[color:var(--text)] capitalize">
-                    {p.paymentType}
                   </td>
                   <td className="px-4 py-4 align-middle tabular-nums text-[color:var(--text)]">
                     {p.amountLabel}
@@ -287,6 +281,7 @@ export function AdminPaymentsView({
           </tbody>
         </table>
       </div>
+      <AdminTablePagination {...pageProps} />
     </AdminAccountsChrome>
   );
 }
@@ -322,7 +317,7 @@ function PaymentActionCell({
           variant="outline"
           onClick={onReject}
           disabled={anyBusy}
-          className="border-red-300 text-red-700 hover:bg-red-50"
+          className="border-red-300 text-red-700 hover:bg-[color:var(--danger-hover-bg)]"
         >
           Reject
         </Button>
@@ -380,7 +375,7 @@ function ProofPreview({ proofUrl }: { proofUrl: string | null }) {
       href={proofUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="block w-fit overflow-hidden rounded-md border border-[color:var(--border)] bg-white p-1 transition hover:border-sky-300"
+      className="block w-fit overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-1 transition hover:border-[color:var(--primary)]"
       title="Open full size"
     >
       <img

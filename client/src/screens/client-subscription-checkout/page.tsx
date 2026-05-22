@@ -23,7 +23,7 @@ export default function ClientSubscriptionCheckoutPage() {
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
           <div className="text-sm font-semibold text-[color:var(--text)]">
             Payment instructions
           </div>
@@ -51,7 +51,7 @@ export default function ClientSubscriptionCheckoutPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
           <div className="text-sm font-semibold text-[color:var(--text)]">
             Upload payment proof
           </div>

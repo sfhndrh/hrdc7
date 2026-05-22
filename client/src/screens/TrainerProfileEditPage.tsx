@@ -160,7 +160,7 @@ export default function TrainerProfileEditPage() {
 
       <form
         onSubmit={(ev) => void onSubmit(ev)}
-        className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm"
+        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm"
       >
         <input type="hidden" name="redirectTo" value="/trainer/profile" />
 
@@ -285,7 +285,7 @@ export default function TrainerProfileEditPage() {
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/trainer/profile"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
           >
             Cancel
           </Link>

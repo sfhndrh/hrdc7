@@ -136,7 +136,7 @@ export default function ClientMessagesPage() {
   return (
     <div className="space-y-6">
       <DashboardPageHeader title="Messages" icon={<InboxIcon />} />
-      <div className="flex h-[min(720px,calc(100vh-9.5rem))] min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white shadow-sm md:h-[calc(100vh-10.25rem)]">
+      <div className="flex h-[min(720px,calc(100vh-9.5rem))] min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm md:h-[calc(100vh-10.25rem)]">
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Conversation list */}
           <aside
@@ -196,13 +196,13 @@ export default function ClientMessagesPage() {
 
         {/* Thread */}
         <section
-          className={`flex min-h-0 min-w-0 flex-1 flex-col bg-[#f8fafc] ${
+          className={`flex min-h-0 min-w-0 flex-1 flex-col bg-[color:var(--chat-pane-bg)] ${
             mobileThreadOpen ? "flex" : "hidden md:flex"
           }`}
         >
           {selected ? (
             <>
-              <header className="flex shrink-0 items-center gap-3 border-b border-[color:var(--border)] bg-white px-3 py-3 md:px-4">
+              <header className="flex shrink-0 items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 md:px-4">
                 <button
                   type="button"
                   className="rounded-lg p-2 text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] md:hidden"
@@ -242,7 +242,7 @@ export default function ClientMessagesPage() {
                           className={`max-w-[min(100%,420px)] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
                             isClient
                               ? "rounded-br-md bg-[color:var(--primary)] text-[color:var(--primary-foreground)]"
-                              : "rounded-bl-md border border-[color:var(--border)] bg-white text-[color:var(--text)]"
+                              : "rounded-bl-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]"
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{msg.body}</p>
@@ -260,7 +260,7 @@ export default function ClientMessagesPage() {
                 })}
               </div>
 
-              <footer className="shrink-0 border-t border-[color:var(--border)] bg-white p-3 md:p-4">
+              <footer className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface)] p-3 md:p-4">
                 <div className="flex gap-2">
                   <textarea
                     value={draft}
@@ -273,7 +273,7 @@ export default function ClientMessagesPage() {
                     }}
                     rows={2}
                     placeholder="Write a message…"
-                    className="min-h-[44px] flex-1 resize-none rounded-xl border border-[color:var(--border)] bg-[#f4f7fc] px-3 py-2.5 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)]"
+                    className="min-h-[44px] flex-1 resize-none rounded-xl border border-[color:var(--border)] bg-[color:var(--topbar-input-bg)] px-3 py-2.5 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)]"
                     aria-label="Message text"
                   />
                   <Button type="button" variant="primary" className="self-end shrink-0" onClick={send}>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { registerInputClass } from "@/components/register/register-form-primitives";
 import { cn } from "@/components/ui/button";
 import { DELIVERY_MODE_OPTIONS } from "@/lib/trainer-delivery-modes";
+import { MALAYSIA_STATES } from "@/lib/malaysia-states";
 
 export { DELIVERY_MODE_OPTIONS } from "@/lib/trainer-delivery-modes";
 
@@ -43,13 +44,13 @@ export function TagListEditor({
           {tags.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-sm text-[color:var(--text)]"
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-sm text-[color:var(--text)]"
             >
               {t}
               {!disabled ? (
                 <button
                   type="button"
-                  className="rounded-full p-0.5 text-[color:var(--text-muted)] hover:bg-sky-100 hover:text-[color:var(--text)]"
+                  className="rounded-full p-0.5 text-[color:var(--text-muted)] hover:bg-[color:var(--hover-subtle)] hover:text-[color:var(--text)]"
                   aria-label={`Remove ${t}`}
                   onClick={() => onChange(tags.filter((x) => x !== t))}
                 >
@@ -76,7 +77,7 @@ export function TagListEditor({
           />
           <button
             type="button"
-            className="h-10 shrink-0 rounded-md border border-[color:var(--border)] bg-white px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+            className="h-10 shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
             onClick={addFromDraft}
           >
             Add
@@ -114,6 +115,50 @@ export function FormTagList({
   );
 }
 
+/** Multi-select Malaysian states (checkbox grid, no free text). */
+export function MalaysiaStatesMultiSelect({
+  selected,
+  onChange,
+  disabled = false,
+}: {
+  selected: string[];
+  onChange: (states: string[]) => void;
+  disabled?: boolean;
+}) {
+  const selectedSet = new Set(selected);
+
+  function toggle(state: string) {
+    if (disabled) return;
+    const next = new Set(selectedSet);
+    if (next.has(state)) next.delete(state);
+    else next.add(state);
+    onChange(MALAYSIA_STATES.filter((s) => next.has(s)));
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {MALAYSIA_STATES.map((state) => (
+        <label
+          key={state}
+          className={cn(
+            "flex items-center gap-2 rounded-lg border border-[color:var(--admin-search-border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)]",
+            disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-[color:var(--hover-subtle)]",
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={selectedSet.has(state)}
+            onChange={() => toggle(state)}
+            disabled={disabled}
+            className="h-4 w-4 shrink-0 rounded border-[color:var(--border)] text-sky-600"
+          />
+          {state}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export function FormDeliveryModeCheckboxes({
   initialModes,
   disabled = false,
@@ -143,8 +188,8 @@ export function FormDeliveryModeCheckboxes({
           <label
             key={opt}
             className={cn(
-              "flex items-center gap-2 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-[color:var(--text)]",
-              disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-sky-50/60",
+              "flex items-center gap-2 rounded-lg border border-[color:var(--admin-search-border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)]",
+              disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-[color:var(--hover-subtle)]",
             )}
           >
             <input
@@ -172,7 +217,11 @@ export function FormTravelWillingBlock({
   disabled?: boolean;
 }) {
   const [willing, setWilling] = useState<"Yes" | "No" | "">(initialWilling || "");
-  const [locations, setLocations] = useState(initialLocations);
+  const [locations, setLocations] = useState(() =>
+    initialLocations.filter((loc) =>
+      (MALAYSIA_STATES as readonly string[]).includes(loc),
+    ),
+  );
 
   return (
     <div className="space-y-4">
@@ -216,21 +265,20 @@ export function FormTravelWillingBlock({
         </label>
       </div>
       {willing === "Yes" ? (
-        <div className="rounded-lg border border-dashed border-sky-200 bg-sky-50/50 p-3">
+        <div className="rounded-lg border border-dashed border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-3">
           <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
             Where can you travel?
           </div>
           <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-            Add regions or cities (e.g. Klang Valley, Penang).
+            Select all locations you are willing to travel to.
           </p>
           <div className="mt-3">
             {locations.map((t) => (
               <input type="hidden" key={t} name="travelLocations" value={t} />
             ))}
-            <TagListEditor
-              tags={locations}
+            <MalaysiaStatesMultiSelect
+              selected={locations}
               onChange={setLocations}
-              placeholder="Add a location and press Enter"
               disabled={disabled}
             />
           </div>

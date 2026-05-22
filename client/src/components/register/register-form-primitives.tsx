@@ -13,24 +13,29 @@ export function RegisterSection({
   children,
   titleClassName,
   contentClassName,
+  hideTitle,
 }: {
   title: string;
   children: ReactNode;
   /** e.g. text-left for section heading alignment */
   titleClassName?: string;
   contentClassName?: string;
+  /** Hide heading when the step label is shown in a stepper */
+  hideTitle?: boolean;
 }) {
   return (
     <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/35 p-5">
-      <h2
-        className={cn(
-          "text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]",
-          titleClassName,
-        )}
-      >
-        {title}
-      </h2>
-      <div className={cn("mt-4", contentClassName)}>{children}</div>
+      {hideTitle ? null : (
+        <h2
+          className={cn(
+            "text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]",
+            titleClassName,
+          )}
+        >
+          {title}
+        </h2>
+      )}
+      <div className={cn(!hideTitle && "mt-4", contentClassName)}>{children}</div>
     </section>
   );
 }
@@ -39,26 +44,47 @@ export function RegisterFieldGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-4 md:grid-cols-2">{children}</div>;
 }
 
+function RegisterFieldLabel({
+  label,
+  htmlFor,
+  required,
+}: {
+  label: string;
+  htmlFor?: string;
+  required?: boolean;
+}) {
+  const content = (
+    <>
+      {label}
+      {required ? <span className="ml-0.5 font-normal text-red-600">*</span> : null}
+    </>
+  );
+  if (htmlFor) {
+    return (
+      <label htmlFor={htmlFor} className="text-sm font-semibold text-[color:var(--text)]">
+        {content}
+      </label>
+    );
+  }
+  return <div className="text-sm font-semibold text-[color:var(--text)]">{content}</div>;
+}
+
 export function RegisterField({
   label,
   htmlFor,
   children,
   wide,
+  required,
 }: {
   label: string;
   htmlFor?: string;
   children: ReactNode;
   wide?: boolean;
+  required?: boolean;
 }) {
   return (
     <div className={`space-y-1.5 ${wide ? "md:col-span-2" : ""}`}>
-      {htmlFor ? (
-        <label htmlFor={htmlFor} className="text-sm font-semibold text-[color:var(--text)]">
-          {label}
-        </label>
-      ) : (
-        <div className="text-sm font-semibold text-[color:var(--text)]">{label}</div>
-      )}
+      <RegisterFieldLabel label={label} htmlFor={htmlFor} required={required} />
       <div>{children}</div>
     </div>
   );

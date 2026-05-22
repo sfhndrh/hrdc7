@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "TRAINER" | "CLIENT";
+export type Role = "ADMIN" | "TRAINER" | "CLIENT" | "TRAINING_PROVIDER";
 
 export type TrainerStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
 

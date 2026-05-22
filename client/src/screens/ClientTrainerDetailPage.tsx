@@ -122,7 +122,7 @@ export default function TrainerDetailPage() {
   if (notFound) return <Navigate to="/client/trainers" replace />;
   if (loading || !trainer) {
     return (
-      <div className="rounded-2xl border border-[color:var(--border)] bg-white p-8 text-center text-sm text-[color:var(--text-muted)] shadow-sm">
+      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 text-center text-sm text-[color:var(--text-muted)] shadow-sm">
         Loading trainer profile…
       </div>
     );
@@ -192,7 +192,7 @@ export default function TrainerDetailPage() {
               href={trainer.certFileUrl || "#"}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-md border border-[color:var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
+              className="inline-flex items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]"
             >
               <DocIcon className="h-4 w-4" />
               {certFileLabel}
@@ -241,7 +241,7 @@ function ProfileHeader({
     .join("");
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm md:flex-row md:items-center md:justify-between">
       <div className="flex items-start gap-4">
         <div
           className={`shrink-0 ${!unlockContent ? "select-none blur-sm pointer-events-none" : ""}`}
@@ -251,10 +251,10 @@ function ProfileHeader({
             <img
               src={apiAssetUrl(trainer.profilePhoto)}
               alt=""
-              className="h-16 w-16 rounded-full border border-[color:var(--border)] bg-white object-cover"
+              className="h-16 w-16 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] object-cover"
             />
           ) : (
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-100 text-lg font-semibold text-sky-700">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-[color:var(--avatar-placeholder-bg)] text-lg font-semibold text-[color:var(--avatar-placeholder-text)]">
               {initials || "T"}
             </div>
           )}
@@ -328,7 +328,7 @@ function StatsStrip({ locked }: { locked?: boolean }) {
         }`}
         aria-hidden={locked ? true : undefined}
       >
-        <StatTile label="Companies hired" value="—" />
+        <StatTile label="Employers hired" value="—" />
         <StatTile label="Avg rating" value="—" />
         <StatTile label="Pax trained" value="—" />
         <StatTile label="Repeat clients" value="—" />
@@ -347,7 +347,7 @@ function StatsStrip({ locked }: { locked?: boolean }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[color:var(--border)] bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
       <div className="text-xl font-semibold text-[color:var(--text)]">{value}</div>
       <div className="mt-0.5 text-xs text-[color:var(--text-muted)]">{label}</div>
     </div>
@@ -362,7 +362,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         {title}
       </h2>
@@ -402,7 +402,7 @@ function Field({
 
   return (
     <div
-      className={`rounded-xl border border-sky-100 bg-sky-50/70 p-4 ${
+      className={`rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-4 ${
         wide ? "md:col-span-2" : ""
       }`}
     >
@@ -459,7 +459,7 @@ function Pill({
 }) {
   const toneClass: Record<typeof tone, string> = {
     green: "border-emerald-300 bg-emerald-100 text-emerald-700",
-    white: "border-[color:var(--border)] bg-white text-[color:var(--text)]",
+    white: "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]",
   };
   return (
     <span

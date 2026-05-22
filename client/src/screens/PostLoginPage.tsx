@@ -5,6 +5,7 @@ import { useAuth } from "@/auth/AuthProvider";
 function roleHome(role: string) {
   if (role === "ADMIN") return "/admin/dashboard";
   if (role === "TRAINER") return "/trainer/dashboard";
+  if (role === "TRAINING_PROVIDER") return "/tp/dashboard";
   return "/client/dashboard";
 }
 

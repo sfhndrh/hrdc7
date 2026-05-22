@@ -88,7 +88,7 @@ export function AccountDeletionSection({
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-account-title"
-            className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-xl"
+            className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3

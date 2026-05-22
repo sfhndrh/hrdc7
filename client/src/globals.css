@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --font-geist-sans: Arial, Helvetica, sans-serif;
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -22,6 +24,115 @@
   --accent-foreground: #111827;
 
   --danger: #b91c1c;
+
+  --page-bg: #f4f7fc;
+  --topbar-input-bg: #f4f7fc;
+  --hover-subtle: #f0f9ff;
+  --card-gradient-from: #ffffff;
+  --card-gradient-via: #f4f6ff;
+  --card-gradient-to: #e3e8fb;
+  --shadow-color: rgba(11, 31, 59, 0.06);
+  --shadow-elevated: rgba(11, 31, 59, 0.14);
+
+  --table-header-bg: #faf8f5;
+  --table-header-text: #0f2942;
+  --admin-search-bg: #eff6ff;
+  --admin-search-border: #e0f2fe;
+  --pill-neutral-bg: #f5f0e8;
+  --pill-neutral-text: #3d3429;
+  --row-highlight-bg: #fffbeb;
+  --row-highlight-hover: #fef3c7;
+  --danger-hover-bg: #fef2f2;
+  --chat-pane-bg: #f8fafc;
+  --avatar-placeholder-bg: #e0f2fe;
+  --avatar-placeholder-text: #0369a1;
+
+  --verify-approve-bg: #ecfdf5;
+  --verify-approve-text: #14532d;
+  --verify-approve-muted: #166534;
+  --verify-reject-bg: #fef2f2;
+  --verify-reject-text: #7f1d1d;
+  --verify-reject-muted: #991b1b;
+  --verify-review-bg: #fefce8;
+  --verify-review-text: #713f12;
+  --verify-review-muted: #a16207;
+  --verify-progress-track: #e5e7eb;
+  --verify-analysis-bg: #f9fafb;
+  --verify-pass-bg: #ecfdf5;
+  --verify-pass-text: #065f46;
+  --verify-pass-icon: #059669;
+  --verify-fail-bg: #fef2f2;
+  --verify-fail-text: #991b1b;
+  --verify-fail-icon: #dc2626;
+  --verify-neutral-bg: #f8fafc;
+  --verify-neutral-text: #475569;
+  --verify-neutral-ring: #e2e8f0;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --background: #0c1222;
+  --foreground: #e2e8f0;
+
+  --surface: #151d2e;
+  --surface-muted: #1e293b;
+
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+
+  --border: #ffffff1f;
+
+  --primary: #93c5fd;
+  --primary-foreground: #0c1222;
+
+  --accent: #fb923c;
+  --accent-foreground: #0c1222;
+
+  --danger: #f87171;
+
+  --page-bg: #0c1222;
+  --topbar-input-bg: #1e293b;
+  --hover-subtle: #1e293b;
+  --card-gradient-from: #1e293b;
+  --card-gradient-via: #172033;
+  --card-gradient-to: #151d2e;
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --shadow-elevated: rgba(0, 0, 0, 0.45);
+
+  --table-header-bg: #1e293b;
+  --table-header-text: #cbd5e1;
+  --admin-search-bg: #1e293b;
+  --admin-search-border: #334155;
+  --pill-neutral-bg: #334155;
+  --pill-neutral-text: #e2e8f0;
+  --row-highlight-bg: #422006;
+  --row-highlight-hover: #451a03;
+  --danger-hover-bg: #450a0a;
+  --chat-pane-bg: #111827;
+  --avatar-placeholder-bg: #1e3a5f;
+  --avatar-placeholder-text: #7dd3fc;
+
+  --verify-approve-bg: #052e16;
+  --verify-approve-text: #bbf7d0;
+  --verify-approve-muted: #86efac;
+  --verify-reject-bg: #450a0a;
+  --verify-reject-text: #fecaca;
+  --verify-reject-muted: #fca5a5;
+  --verify-review-bg: #422006;
+  --verify-review-text: #fde68a;
+  --verify-review-muted: #fcd34d;
+  --verify-progress-track: #334155;
+  --verify-analysis-bg: #1e293b;
+  --verify-pass-bg: #064e3b;
+  --verify-pass-text: #a7f3d0;
+  --verify-pass-icon: #10b981;
+  --verify-fail-bg: #450a0a;
+  --verify-fail-text: #fecaca;
+  --verify-fail-icon: #f87171;
+  --verify-neutral-bg: #334155;
+  --verify-neutral-text: #cbd5e1;
+  --verify-neutral-ring: #475569;
 }
 
 @theme inline {

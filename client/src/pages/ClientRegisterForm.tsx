@@ -4,14 +4,38 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 import { Link } from "@/components/link";
+import { ClientProfileDetailFields } from "@/components/client/client-profile-detail-fields";
 import {
   RegisterField,
   RegisterFieldGrid,
   RegisterSection,
   registerInputClass,
 } from "@/components/register/register-form-primitives";
+import { RegisterStepper } from "@/components/register/register-stepper";
+import {
+  CLIENT_REGISTER_STEPS,
+  DESCRIBES_YOU_OPTIONS,
+  profileTypeLabel,
+  validateProfileDetailFields,
+  type ClientProfileData,
+  type ClientProfileType,
+  type DescribesYouKey,
+} from "@/lib/client-profile";
 import { cn } from "@/components/ui/button";
-import { MALAYSIA_STATES } from "@/lib/malaysia-states";
+
+const LAST_STEP = CLIENT_REGISTER_STEPS.length - 1;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(email: string): boolean {
+  return EMAIL_PATTERN.test(email.trim());
+}
+
+function isValidPhone(phone: string): boolean {
+  const trimmed = phone.trim();
+  if (!/^\+?\d[\d\s-]*$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15;
+}
 
 export function ClientRegisterForm() {
   const [loading, setLoading] = useState(false);
@@ -24,16 +48,18 @@ export function ClientRegisterForm() {
   const photoBlobUnmountRef = useRef<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  const [describesYou, setDescribesYou] = useState<DescribesYouKey | "">("");
+  const [profileType, setProfileType] = useState<ClientProfileType>("COMPANY");
+  const [profileData, setProfileData] = useState<ClientProfileData>({});
+  const [currentStep, setCurrentStep] = useState(0);
+  const [maxReachableStep, setMaxReachableStep] = useState(0);
+
   const [form, setForm] = useState({
+    fullName: "",
     email: "",
-    password: "",
-    companyName: "",
-    industry: "",
-    contactEmail: "",
     phone: "",
-    street: "",
-    city: "",
-    state: "",
+    password: "",
+    confirmPassword: "",
     profilePhoto: null as string | null,
   });
 
@@ -50,6 +76,15 @@ export function ClientRegisterForm() {
       revokeBlobPreview(photoBlobUnmountRef.current);
     };
   }, []);
+
+  function selectDescribesYou(key: DescribesYouKey) {
+    setDescribesYou(key);
+    const opt = DESCRIBES_YOU_OPTIONS.find((o) => o.key === key);
+    if (opt) {
+      setProfileType(opt.profileType);
+      setProfileData({});
+    }
+  }
 
   async function onProfilePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -112,12 +147,80 @@ export function ClientRegisterForm() {
     setForm((f) => ({ ...f, profilePhoto: null }));
     setPhotoLocalName(null);
     setPhotoUploadError(null);
-    if (photoInputRef.current) {
-      photoInputRef.current.value = "";
-    }
+    if (photoInputRef.current) photoInputRef.current.value = "";
   }
 
   const profilePhotoPreviewSrc = photoPreviewBlobUrl ?? form.profilePhoto ?? null;
+
+  function validateStep(step: number): string | null {
+    switch (step) {
+      case 0:
+        if (!describesYou) return "Select what best describes you.";
+        return null;
+      case 1: {
+        if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+          return "Full name is required.";
+        }
+        if (!form.email.trim()) return "Email is required.";
+        if (!isValidEmail(form.email)) return "Enter a valid email address.";
+        if (!form.phone.trim()) return "Phone number is required.";
+        if (!isValidPhone(form.phone)) {
+          return "Enter a valid phone number (8–15 digits).";
+        }
+        if (!form.password) return "Password is required.";
+        if (form.password.length < 8) return "Password must be at least 8 characters.";
+        if (form.password !== form.confirmPassword) return "Passwords do not match.";
+        if (!profileType) return "Profile type is required.";
+        return null;
+      }
+      case 2:
+        return validateProfileDetailFields(profileType, profileData);
+      default:
+        return null;
+    }
+  }
+
+  function goToStep(step: number) {
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleNext() {
+    const message = validateStep(currentStep);
+    if (message) {
+      setErr(message);
+      return;
+    }
+    setErr(null);
+    const next = Math.min(currentStep + 1, LAST_STEP);
+    setMaxReachableStep((prev) => Math.max(prev, next));
+    goToStep(next);
+  }
+
+  function handleBack() {
+    setErr(null);
+    goToStep(Math.max(0, currentStep - 1));
+  }
+
+  function handleStepClick(index: number) {
+    if (index === currentStep) return;
+    if (index > currentStep) {
+      for (let s = currentStep; s < index; s++) {
+        const message = validateStep(s);
+        if (message) {
+          setErr(message);
+          return;
+        }
+      }
+    }
+    setErr(null);
+    setMaxReachableStep((prev) => Math.max(prev, index));
+    goToStep(index);
+  }
+
+  const describesYouLabel =
+    DESCRIBES_YOU_OPTIONS.find((o) => o.key === describesYou)?.label ??
+    profileTypeLabel(profileType);
 
   return (
     <form
@@ -126,244 +229,232 @@ export function ClientRegisterForm() {
         e.preventDefault();
         setErr(null);
         setOk(null);
-        setLoading(true);
 
+        for (let s = 0; s <= LAST_STEP; s++) {
+          const message = validateStep(s);
+          if (message) {
+            setErr(message);
+            setMaxReachableStep((prev) => Math.max(prev, s));
+            goToStep(s);
+            return;
+          }
+        }
+
+        setLoading(true);
         const res = await apiFetch("/api/register/client", {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            email: form.email,
+            email: form.email.trim(),
             password: form.password,
-            companyName: form.companyName,
-            industry: form.industry,
-            contactEmail: form.contactEmail.trim(),
-            phone: form.phone,
-            street: form.street.trim(),
-            city: form.city.trim(),
-            state: form.state,
+            fullName: form.fullName.trim(),
+            phone: form.phone.trim(),
+            profileType,
             profilePhoto: form.profilePhoto,
+            profileData: { ...profileData, describesYou: describesYou || undefined },
           }),
         });
 
         setLoading(false);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          setErr(j?.error ?? "Registration failed");
+          setErr((j as { error?: string })?.error ?? "Registration failed");
           return;
         }
         setOk("Account created. You can now login.");
       }}
     >
-      <RegisterSection title="Add profile photo" titleClassName="text-left">
-        <div className="flex flex-col items-stretch gap-4">
-          <div className="flex justify-center">
-            <div className="relative">
-              <input
-                ref={photoInputRef}
-                id="co-profile-photo"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                disabled={loading || photoUploading}
-                onChange={onProfilePhotoChange}
-                className="peer sr-only"
-              />
-              <label
-                htmlFor="co-profile-photo"
-                aria-label={profilePhotoPreviewSrc ? "Change profile photo" : "Add profile photo"}
-                className={cn(
-                  "relative flex h-28 w-28 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 transition-[border-color,background-color,ring-color]",
-                  profilePhotoPreviewSrc
-                    ? "border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:ring-2 hover:ring-gray-300"
-                    : "border-dashed border-gray-300 bg-[color:var(--surface-muted)]/50 hover:border-gray-400 hover:bg-gray-100",
-                  (loading || photoUploading) && "pointer-events-none opacity-60",
-                )}
-              >
-                {profilePhotoPreviewSrc ? (
-                  <img
-                    src={profilePhotoPreviewSrc}
-                    alt=""
-                    className="h-full w-full object-cover"
+      <RegisterStepper
+        steps={CLIENT_REGISTER_STEPS}
+        currentStep={currentStep}
+        maxReachableStep={maxReachableStep}
+        onStepClick={handleStepClick}
+      />
+
+      {currentStep === 0 ? (
+        <RegisterSection title="What best describes you?" hideTitle>
+          <p className="mb-4 text-sm text-[color:var(--text-muted)]">
+            Choose the option that fits you best. We will ask for relevant details in the next
+            step.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {DESCRIBES_YOU_OPTIONS.map((opt) => {
+              const selected = describesYou === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => selectDescribesYou(opt.key)}
+                  className={cn(
+                    "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors",
+                    selected
+                      ? "border-sky-500 bg-sky-50 text-sky-900 ring-2 ring-sky-200"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-sky-300",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </RegisterSection>
+      ) : null}
+
+      {currentStep === 1 ? (
+        <RegisterSection title="Basic account" hideTitle>
+          <div className="flex flex-col items-stretch gap-6">
+            <div className="flex flex-col items-stretch gap-4 border-b border-[color:var(--border)] pb-6">
+              <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
+                Profile photo / logo <span className="font-normal normal-case">(optional)</span>
+              </div>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <input
+                    ref={photoInputRef}
+                    id="co-profile-photo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                    disabled={loading || photoUploading}
+                    onChange={onProfilePhotoChange}
+                    className="peer sr-only"
                   />
-                ) : (
-                  <span className="flex flex-col items-center gap-1 text-[color:var(--text-muted)]">
-                    <span
-                      className="grid h-10 w-10 place-items-center rounded-full bg-white text-xl font-light leading-none text-[color:var(--text)] shadow-inner ring-1 ring-gray-200"
-                      aria-hidden
-                    >
-                      +
-                    </span>
-                    <span className="text-[10px] font-medium uppercase tracking-wide">Add photo</span>
-                  </span>
-                )}
-              </label>
-              {photoUploading ? (
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/65 text-xs font-medium text-[color:var(--text)] backdrop-blur-[2px]">
-                  Uploading…
+                  <label
+                    htmlFor="co-profile-photo"
+                    aria-label={profilePhotoPreviewSrc ? "Change profile photo" : "Add profile photo"}
+                    className={cn(
+                      "relative flex h-28 w-28 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 transition-[border-color,background-color,ring-color]",
+                      profilePhotoPreviewSrc
+                        ? "border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:ring-2 hover:ring-gray-300"
+                        : "border-dashed border-gray-300 bg-[color:var(--surface-muted)]/50 hover:border-gray-400 hover:bg-gray-100",
+                      (loading || photoUploading) && "pointer-events-none opacity-60",
+                    )}
+                  >
+                    {profilePhotoPreviewSrc ? (
+                      <img
+                        src={profilePhotoPreviewSrc}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex flex-col items-center gap-1 text-[color:var(--text-muted)]">
+                        <span
+                          className="grid h-10 w-10 place-items-center rounded-full bg-white text-xl font-light leading-none text-[color:var(--text)] shadow-inner ring-1 ring-gray-200"
+                          aria-hidden
+                        >
+                          +
+                        </span>
+                        <span className="text-[10px] font-medium uppercase tracking-wide">
+                          Add photo
+                        </span>
+                      </span>
+                    )}
+                  </label>
+                  {photoUploading ? (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/65 text-xs font-medium text-[color:var(--text)] backdrop-blur-[2px]">
+                      Uploading…
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              {photoUploadError ? (
+                <p className="text-center text-xs text-red-600">{photoUploadError}</p>
+              ) : null}
+              {profilePhotoPreviewSrc ? (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={clearProfilePhoto}
+                    disabled={loading || photoUploading}
+                    className="rounded-lg border border-[color:var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[color:var(--text)] hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Remove photo
+                  </button>
                 </div>
               ) : null}
             </div>
-          </div>
 
-          <p className="text-center text-xs text-[color:var(--text-muted)]">
-            Optional. PNG or JPEG · max 5MB. Tap the circle to add or change photo.
-          </p>
-
-          <div className="flex flex-col items-center gap-2 text-center">
-            {photoUploadError ? (
-              <p className="text-xs text-red-600">{photoUploadError}</p>
-            ) : profilePhotoPreviewSrc ? (
-              <>
-                {photoLocalName ? (
-                  <p className="max-w-[18rem] text-xs text-[color:var(--text-muted)]">
-                    <span className="font-semibold text-[color:var(--text)]">{photoLocalName}</span>
-                    {photoUploading ? " · finishing upload…" : null}
-                  </p>
-                ) : form.profilePhoto ? (
-                  <p className="text-xs text-[color:var(--text-muted)]">Tap circle to replace</p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={clearProfilePhoto}
-                  disabled={loading || photoUploading}
-                  className="rounded-lg border border-[color:var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[color:var(--text)] hover:bg-gray-100 disabled:opacity-50"
+            <RegisterFieldGrid>
+              <RegisterField label="Full name" htmlFor="co-fullName" required>
+                <input
+                  id="co-fullName"
+                  required
+                  minLength={2}
+                  autoComplete="name"
+                  value={form.fullName}
+                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                  className={registerInputClass}
+                />
+              </RegisterField>
+              <RegisterField label="Email" htmlFor="co-email" required>
+                <input
+                  id="co-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@email.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className={registerInputClass}
+                />
+              </RegisterField>
+              <RegisterField label="Phone number" htmlFor="co-phone" required>
+                <input
+                  id="co-phone"
+                  required
+                  placeholder="+60123456789"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className={registerInputClass}
+                />
+              </RegisterField>
+              <RegisterField label="Password" htmlFor="co-password" required>
+                <input
+                  id="co-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className={registerInputClass}
+                />
+              </RegisterField>
+              <RegisterField label="Confirm password" htmlFor="co-confirm" required>
+                <input
+                  id="co-confirm"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  className={registerInputClass}
+                />
+              </RegisterField>
+              <RegisterField label="Profile type" htmlFor="co-profile-type" required>
+                <div
+                  id="co-profile-type"
+                  className="flex h-10 items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 px-3 text-sm text-[color:var(--text)]"
+                  aria-readonly="true"
                 >
-                  Remove photo
-                </button>
-              </>
-            ) : null}
+                  {describesYouLabel || "—"}
+                </div>
+              </RegisterField>
+            </RegisterFieldGrid>
           </div>
-        </div>
-      </RegisterSection>
+        </RegisterSection>
+      ) : null}
 
-      <RegisterSection title="Account credentials">
-        <RegisterFieldGrid>
-          <RegisterField label="Email" htmlFor="co-email">
-            <input
-              id="co-email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@email.com"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-          <RegisterField label="Password" htmlFor="co-password">
-            <input
-              id="co-password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-        </RegisterFieldGrid>
-      </RegisterSection>
-
-      <RegisterSection title="Company information">
-        <RegisterFieldGrid>
-          <RegisterField label="Company name" htmlFor="co-company">
-            <input
-              id="co-company"
-              required
-              minLength={2}
-              placeholder="e.g. Acme Solutions Sdn Bhd"
-              value={form.companyName}
-              onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-          <RegisterField label="Industry" htmlFor="co-industry">
-            <input
-              id="co-industry"
-              required
-              minLength={2}
-              placeholder="e.g. Information technology, manufacturing"
-              value={form.industry}
-              onChange={(e) => setForm({ ...form, industry: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-        </RegisterFieldGrid>
-      </RegisterSection>
-
-      <RegisterSection title="Contact">
-        <RegisterFieldGrid>
-          <RegisterField label="Company Email" htmlFor="co-contact-email">
-            <input
-              id="co-contact-email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="contact@company.com"
-              value={form.contactEmail}
-              onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-          <RegisterField label="Phone number" htmlFor="co-phone">
-            <input
-              id="co-phone"
-              required
-              minLength={5}
-              placeholder="+60123456789"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-        </RegisterFieldGrid>
-      </RegisterSection>
-
-      <RegisterSection title="Company address">
-        <RegisterFieldGrid>
-          <RegisterField label="Street address" htmlFor="co-street" wide>
-            <input
-              id="co-street"
-              required
-              minLength={2}
-              placeholder="e.g. Unit 5-2, Menara ABC, Jalan Ampang"
-              autoComplete="street-address"
-              value={form.street}
-              onChange={(e) => setForm({ ...form, street: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-          <RegisterField label="City" htmlFor="co-city">
-            <input
-              id="co-city"
-              required
-              minLength={2}
-              placeholder="e.g. Kuala Lumpur"
-              autoComplete="address-level2"
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
-              className={registerInputClass}
-            />
-          </RegisterField>
-          <RegisterField label="State" htmlFor="co-state">
-            <select
-              id="co-state"
-              required
-              value={form.state}
-              onChange={(e) => setForm({ ...form, state: e.target.value })}
-              className={registerInputClass}
-            >
-              <option value="">Select state</option>
-              {MALAYSIA_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </RegisterField>
-        </RegisterFieldGrid>
-      </RegisterSection>
+      {currentStep === 2 ? (
+        <RegisterSection title="Profile details" hideTitle>
+          <ClientProfileDetailFields
+            profileType={profileType}
+            profileData={profileData}
+            onChange={setProfileData}
+          />
+        </RegisterSection>
+      ) : null}
 
       {err ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -380,13 +471,38 @@ export function ClientRegisterForm() {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading || photoUploading}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[color:var(--primary)] to-[#163a66] px-4 text-sm font-semibold text-[color:var(--primary-foreground)] shadow-md transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loading ? "Creating…" : "Create company account"}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {currentStep > 0 ? (
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={loading || photoUploading}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-[color:var(--text)] hover:bg-gray-50 disabled:opacity-50"
+          >
+            Back
+          </button>
+        ) : (
+          <span />
+        )}
+        {currentStep < LAST_STEP ? (
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={loading || photoUploading}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={loading || photoUploading}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-r from-[color:var(--primary)] to-[#163a66] px-5 text-sm font-semibold text-[color:var(--primary-foreground)] shadow-md hover:opacity-95 disabled:opacity-50"
+          >
+            {loading ? "Creating…" : "Create employer account"}
+          </button>
+        )}
+      </div>
     </form>
   );
 }

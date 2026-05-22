@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import type { ReactNode } from "react";
 import { Link } from "@/components/link";
@@ -8,6 +8,7 @@ import { Navigate, useParams } from "react-router-dom";
 
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconUsers } from "@/components/dashboard/page-header-icons";
+import { AdminTrainerActionsSection } from "@/components/admin/admin-trainer-actions";
 import { cn } from "@/components/ui/button";
 
 type TrainerDetailRow = {
@@ -31,6 +32,9 @@ type TrainerDetailRow = {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  accountStatus: "ACTIVE" | "SUSPENDED";
+  suspensionReason: string | null;
+  suspendedAt: string | null;
   user: { email: string };
 };
 
@@ -40,21 +44,40 @@ export default function AdminTrainerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
 
-  useEffect(() => {
+  const loadTrainer = useCallback(() => {
     if (!id) return;
+    setLoading(true);
+    setMissing(false);
     void apiFetch(`/api/admin/trainers/${id}`, { credentials: "include" })
-      .then((r) => {
+      .then(async (r) => {
         if (r.status === 404) {
           setMissing(true);
-          return null;
+          setRow(null);
+          return;
         }
-        return r.json() as Promise<{ trainer: TrainerDetailRow }>;
-      })
-      .then((d) => {
-        if (d?.trainer) setRow(d.trainer);
+        if (!r.ok) {
+          setRow(null);
+          return;
+        }
+        const d = (await r.json()) as { trainer?: TrainerDetailRow };
+        if (d.trainer) {
+          setRow({
+            ...d.trainer,
+            accountStatus:
+              d.trainer.accountStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+            suspensionReason: d.trainer.suspensionReason ?? null,
+            suspendedAt: d.trainer.suspendedAt ?? null,
+          });
+        } else {
+          setRow(null);
+        }
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    loadTrainer();
+  }, [loadTrainer]);
 
   if (!id) return null;
   if (loading) {
@@ -195,6 +218,14 @@ export default function AdminTrainerDetailPage() {
           />
         </FieldGrid>
       </Section>
+
+      <AdminTrainerActionsSection
+        trainerId={row.id}
+        accountStatus={row.accountStatus}
+        suspensionReason={row.suspensionReason}
+        suspendedAt={row.suspendedAt}
+        onUpdated={loadTrainer}
+      />
     </div>
   );
 }
@@ -205,7 +236,7 @@ function formatTrainerStatus(status: string) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         {title}
       </h2>
@@ -245,7 +276,7 @@ function ReadOnlyField({
 
   return (
     <div
-      className={`rounded-xl border border-sky-100 bg-sky-50/70 p-4 ${wide ? "md:col-span-2" : ""}`}
+      className={`rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-4 ${wide ? "md:col-span-2" : ""}`}
     >
       <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
         {label}
@@ -258,7 +289,7 @@ function ReadOnlyField({
 function Pill({ children, tone }: { children: ReactNode; tone: "green" | "white" }) {
   const toneClass: Record<typeof tone, string> = {
     green: "border-emerald-300 bg-emerald-100 text-emerald-700",
-    white: "border-[color:var(--border)] bg-white text-[color:var(--text)]",
+    white: "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]",
   };
   return (
     <span

@@ -149,11 +149,7 @@ export default function ClientSubscriptionPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        title="Subscription"
-        description="Manage your plan."
-        icon={<PageHeaderIconReceipt />}
-      />
+      <DashboardPageHeader title="Subscription" icon={<PageHeaderIconReceipt />} />
 
       <CurrentPlanHero
         subscribed={subscribed}
@@ -205,8 +201,7 @@ function CurrentPlanHero({
               Pro
             </div>
             <div className="mt-1 text-sm text-[color:var(--text-muted)]">
-              Full access to every trainer profile, contact details, and
-              portfolio.
+              Full access to course details, provider information and fees.
             </div>
           </div>
         </div>
@@ -215,7 +210,7 @@ function CurrentPlanHero({
   }
 
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -225,7 +220,7 @@ function CurrentPlanHero({
             Free tier
           </div>
           <div className="mt-1 text-sm text-[color:var(--text-muted)]">
-            You can browse the marketplace, but details are blurred until you
+            You can browse the platform, but details are blurred until you
             subscribe.
           </div>
         </div>
@@ -265,7 +260,7 @@ function ProSubscriptionDetails({
     if (cancelling) return;
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        "Cancel your Pro subscription? You'll immediately lose access to full trainer profiles.",
+        "Cancel your Pro subscription? You'll immediately lose access to full course details.",
       );
       if (!ok) return;
     }
@@ -284,7 +279,7 @@ function ProSubscriptionDetails({
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
         <div className="text-sm font-semibold text-[color:var(--text)]">
           Plan details
         </div>
@@ -313,16 +308,16 @@ function ProSubscriptionDetails({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
         <div className="text-sm font-semibold text-[color:var(--text)]">
           What&rsquo;s included
         </div>
         <ul className="mt-4 grid gap-3 text-sm text-[color:var(--text)]">
-          <PerkRow>Full profile listing for every trainer</PerkRow>
-          <PerkRow>Direct contact details (email, phone, LinkedIn)</PerkRow>
-          <PerkRow>Verified reviews, portfolio, and testimonials</PerkRow>
-          <PerkRow>Performance stats and engagement history</PerkRow>
-          <PerkRow>Trainer availability and earliest start date</PerkRow>
+          <PerkRow>Browse all published courses on the platform</PerkRow>
+          <PerkRow>Search and filter courses by category and keyword</PerkRow>
+          <PerkRow>Unblur course titles, categories, and provider details</PerkRow>
+          <PerkRow>View fees, descriptions, learning outcomes, and locations</PerkRow>
+          <PerkRow>Access brochures, slides, and sample course materials</PerkRow>
         </ul>
       </div>
     </div>
@@ -359,7 +354,7 @@ function FreePlanCompare({
   onSelect: (plan: PlanKey) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         Plans
       </div>
@@ -379,9 +374,9 @@ function FreePlanCompare({
           selected={selectedPlan === "free"}
           onSelect={() => onSelect("free")}
           features={[
-            "Browse all trainers in the marketplace",
-            "See trainer name, location, expertise & topics",
-            "Basic info only — full profile is locked",
+            "Browse all published courses on the platform",
+            "Blurred course titles, categories, and provider details",
+            "Search and category filters do not return results",
           ]}
         />
         <PlanCard
@@ -392,11 +387,11 @@ function FreePlanCompare({
           selected={selectedPlan === "pro"}
           onSelect={() => onSelect("pro")}
           features={[
-            "Unlock full trainer profiles",
-            "See contact details (email, phone, LinkedIn)",
-            "View bios, programmes, and testimonials",
-            "Access verified reviews and performance stats",
-            "Filter by availability and earliest start date",
+            "Unlock full course and provider details",
+            "Search and filter courses by title, category, or provider",
+            "View fees, duration, delivery mode, and locations",
+            "Read descriptions, learning outcomes, and materials notes",
+            "Download brochures, slides, and sample materials",
           ]}
         />
       </div>
@@ -509,7 +504,7 @@ function PaymentSection({
   return (
     <section
       id="payment"
-      className="scroll-mt-24 rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm"
+      className="scroll-mt-24 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm"
     >
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         Payment
@@ -523,7 +518,7 @@ function PaymentSection({
       </p>
 
       <div className="mt-6 grid gap-5 md:grid-cols-2">
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-5">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5">
           <div className="text-sm font-semibold text-[color:var(--text)]">
             Payment instructions
           </div>
@@ -540,10 +535,10 @@ function PaymentSection({
               label="Account number"
               value={settings.accountNumber || "—"}
             />
-            <PaymentRow label="Reference" value="Your company name" />
+            <PaymentRow label="Reference" value="Your employer name" />
             <PaymentRow label="Amount" value={amountLabel} />
           </div>
-          <div className="mt-4 flex h-56 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[color:var(--border)] bg-white p-3 text-sm text-[color:var(--text-muted)]">
+          <div className="mt-4 flex h-56 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-sm text-[color:var(--text-muted)]">
             {settings.qrImageUrl ? (
               <img
                 src={apiAssetUrl(settings.qrImageUrl)}
@@ -559,7 +554,7 @@ function PaymentSection({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-5">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5">
           <div className="text-sm font-semibold text-[color:var(--text)]">
             Upload payment proof
           </div>
@@ -624,7 +619,7 @@ function PaymentSection({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={busy}
-              className="w-full resize-none rounded-lg border border-[color:var(--border)] bg-white px-3 py-2 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)] disabled:opacity-60"
+              className="w-full resize-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)] disabled:opacity-60"
             />
           </label>
           {error ? (
@@ -672,7 +667,7 @@ function PaymentHistorySection({
   history: PaymentHistoryItem[] | null;
 }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         Payment history
       </div>
@@ -685,11 +680,11 @@ function PaymentHistorySection({
 
       <div className="mt-6">
         {history === null ? (
-          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-white px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
+          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
             Loading…
           </div>
         ) : history.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-white px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
+          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
             No payment submissions yet.
           </div>
         ) : (
@@ -708,7 +703,7 @@ function PaymentHistoryRow({ item }: { item: PaymentHistoryItem }) {
   const submittedLabel = formatDateTime(item.submittedAt);
   const reviewedLabel = item.reviewedAt ? formatDateTime(item.reviewedAt) : null;
   return (
-    <li className="rounded-xl border border-[color:var(--border)] bg-white p-4 shadow-sm">
+    <li className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-[color:var(--text)]">
@@ -762,7 +757,7 @@ function PaymentProofThumb({ proofUrl }: { proofUrl: string | null }) {
         href={apiAssetUrl(proofUrl)}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-md border border-[color:var(--border)] bg-white px-2 py-1.5 text-xs font-medium text-sky-700 hover:border-sky-300"
+        className="inline-flex items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1.5 text-xs font-medium text-[color:var(--primary)] hover:border-[color:var(--primary)]"
       >
         View PDF
       </a>
@@ -773,7 +768,7 @@ function PaymentProofThumb({ proofUrl }: { proofUrl: string | null }) {
       href={apiAssetUrl(proofUrl)}
       target="_blank"
       rel="noopener noreferrer"
-      className="block w-fit overflow-hidden rounded-md border border-[color:var(--border)] bg-white p-1 transition hover:border-sky-300"
+      className="block w-fit overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-1 transition hover:border-[color:var(--primary)]"
       title="Open full size"
     >
       <img
@@ -884,7 +879,7 @@ function PlanCard({
           onSelect();
         }
       }}
-      className={`relative flex cursor-pointer flex-col rounded-2xl border bg-white p-6 text-[color:var(--text)] shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 ${
+      className={`relative flex cursor-pointer flex-col rounded-2xl border bg-[color:var(--surface)] p-6 text-[color:var(--text)] shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 ${
         selected ? selectedRing : unselectedBorder
       }`}
     >

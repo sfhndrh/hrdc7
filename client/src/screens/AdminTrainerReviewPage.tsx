@@ -95,7 +95,7 @@ export default function AdminTrainerReviewPage() {
                 }}
               />
 
-              <div className="rounded-xl border bg-white p-4">
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
                 <div className="text-sm font-semibold">Admin decision</div>
                 <textarea
                   className="mt-3 min-h-24 w-full rounded-md border p-3 text-sm"

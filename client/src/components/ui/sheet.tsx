@@ -45,7 +45,7 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-[color:var(--border)] bg-white shadow-2xl",
+          "fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl",
           className,
         )}
       >

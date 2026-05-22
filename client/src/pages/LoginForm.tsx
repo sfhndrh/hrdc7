@@ -2,7 +2,10 @@
 
 import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
+import { parseAccountSuspendedResponse } from "@/lib/account-suspension";
 import { useState } from "react";
+
+import { AccountSuspendedDialog } from "@/components/client/account-suspended-dialog";
 
 export function LoginForm() {
   const [searchParams] = useSearchParams();
@@ -11,6 +14,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
 
   return (
     <form
@@ -26,6 +30,12 @@ export function LoginForm() {
           body: JSON.stringify({ email, password }),
         });
         setLoading(false);
+        const suspended = await parseAccountSuspendedResponse(res.clone());
+        if (suspended) {
+          setSuspensionReason(suspended.suspensionReason);
+          setError(null);
+          return;
+        }
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           setError(typeof j?.error === "string" ? j.error : "Invalid email or password.");
@@ -46,7 +56,7 @@ export function LoginForm() {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="you@company.com"
+            placeholder="you@employer.com"
             className="h-10 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 pl-10 pr-3 text-sm text-[color:var(--text)] shadow-inner outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--text-muted)] focus:border-sky-300 focus:ring-2 focus:ring-sky-200/60"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -90,6 +100,13 @@ export function LoginForm() {
         <SignInGlyph className="h-4 w-4 shrink-0 opacity-90" />
         {loading ? "Signing in…" : "Sign in"}
       </button>
+
+      {suspensionReason !== null ? (
+        <AccountSuspendedDialog
+          suspensionReason={suspensionReason}
+          onDismiss={() => setSuspensionReason(null)}
+        />
+      ) : null}
     </form>
   );
 }

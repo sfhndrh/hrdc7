@@ -97,7 +97,7 @@ export default function TrainerProfilePage() {
     <div className="space-y-6 p-6">
       <TrainerPageHeader title="Profile" icon={<TrainerNavIconProfile />} />
 
-      <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-4">
           <ProfilePhotoCircle
             photoUrl={isAdminViewer ? null : trainer!.profilePhoto}
@@ -206,7 +206,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
@@ -235,7 +235,7 @@ function Field({
   );
   return (
     <div
-      className={`rounded-xl border border-sky-100 bg-sky-50/70 p-4 ${wide ? "md:col-span-2" : ""}`}
+      className={`rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-4 ${wide ? "md:col-span-2" : ""}`}
     >
       <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">{label}</div>
       <div className="mt-2">{body}</div>

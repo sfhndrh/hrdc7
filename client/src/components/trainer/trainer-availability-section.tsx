@@ -74,12 +74,12 @@ export function TrainerAvailabilitySection({
   }
 
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         Availability
       </h2>
       <p className="mt-2 max-w-2xl text-sm text-[color:var(--text-muted)]">
-        Let companies know when you can take on training work. Subscribed clients can see this on
+        Let employers know when you can take on training work. Subscribed clients can see this on
         your marketplace profile.
       </p>
 
@@ -94,7 +94,7 @@ export function TrainerAvailabilitySection({
                   key={opt.value}
                   className={`flex cursor-pointer flex-col rounded-xl border p-4 transition ${
                     selected
-                      ? "border-[color:var(--primary)] bg-sky-50 ring-1 ring-[color:var(--primary)]"
+                      ? "border-[color:var(--primary)] bg-[color:var(--admin-search-bg)] ring-1 ring-[color:var(--primary)]"
                       : "border-[color:var(--border)] hover:border-sky-200"
                   }`}
                 >

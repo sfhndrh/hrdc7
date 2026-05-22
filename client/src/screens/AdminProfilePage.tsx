@@ -22,7 +22,7 @@ export default function AdminProfilePage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <DashboardPageHeader title="Edit profile" icon={<PageHeaderIconUser />} />
-      <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
         <dl className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
             <dt className="text-xs font-medium text-[color:var(--text-muted)]">Email</dt>

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { TrainerLayout } from "@/layouts/TrainerLayout";
+import { TpLayout } from "@/layouts/TpLayout";
 
 import AdminClientDetailPage from "@/screens/AdminClientDetailPage";
 import AdminClientsPage from "@/screens/AdminClientsPage";
@@ -14,14 +15,17 @@ import AdminTrainerReviewPage from "@/screens/AdminTrainerReviewPage";
 import AdminTrainersPage from "@/screens/AdminTrainersPage";
 import AdminNotificationsPage from "@/screens/AdminNotificationsPage";
 import AdminSettingsPage from "@/screens/admin-settings/page";
+import AdminCoursesPage from "@/screens/AdminCoursesPage";
+import AdminCourseDetailPage from "@/screens/AdminCourseDetailPage";
 import AdminTrainingProvidersPage from "@/screens/AdminTrainingProvidersPage";
+import AdminHrdcProviderDetailPage from "@/screens/AdminHrdcProviderDetailPage";
 import ClientDashboardPage from "@/screens/ClientDashboardPage";
 import ClientProfileEditPage from "@/screens/ClientProfileEditPage";
 import ClientProfilePage from "@/screens/ClientProfilePage";
 import ClientSettingsPage from "@/screens/ClientSettingsPage";
 import ClientSubscriptionPage from "@/screens/ClientSubscriptionPage";
-import ClientTrainerDetailPage from "@/screens/ClientTrainerDetailPage";
-import ClientTrainersPage from "@/screens/ClientTrainersPage";
+import ClientCourseDetailPage from "@/screens/ClientCourseDetailPage";
+import ClientCoursesPage from "@/screens/ClientCoursesPage";
 import ClientMessagesPage from "@/screens/client-messages/page";
 import ClientSubscriptionCheckoutPage from "@/screens/client-subscription-checkout/page";
 import HomePage from "@/screens/HomePage";
@@ -29,6 +33,17 @@ import LoginPage from "@/screens/LoginPage";
 import PostLoginPage from "@/screens/PostLoginPage";
 import RegisterClientPage from "@/screens/RegisterClientPage";
 import RegisterTrainerPage from "@/screens/RegisterTrainerPage";
+import RegisterTpPage from "@/screens/RegisterTpPage";
+import { AdminTpOrgsRedirect } from "@/screens/AdminTrainingProvidersPage";
+import AdminTpOrgDetailPage from "@/screens/AdminTpOrgDetailPage";
+import TpDashboardPage from "@/screens/tp/TpDashboardPage";
+import TpCoursesPage from "@/screens/tp/TpCoursesPage";
+import TpSchedulesPage from "@/screens/tp/TpSchedulesPage";
+import TpRatingsPage from "@/screens/tp/TpRatingsPage";
+import TpProfilePage from "@/screens/tp/TpProfilePage";
+import TpCourseCreatePage from "@/screens/tp/TpCourseCreatePage";
+import TpCourseDetailPage from "@/screens/tp/TpCourseDetailPage";
+import TpScheduleCreatePage from "@/screens/tp/TpScheduleCreatePage";
 import TrainerCalendarPage from "@/screens/trainer-calendar/page";
 import TrainerCertificatePage from "@/screens/trainer-certificate/page";
 import TrainerDashboardPage from "@/screens/TrainerDashboardPage";
@@ -46,6 +61,7 @@ export default function App() {
       <Route path="/post-login" element={<PostLoginPage />} />
       <Route path="/register/client" element={<RegisterClientPage />} />
       <Route path="/register/trainer" element={<RegisterTrainerPage />} />
+      <Route path="/register/tp" element={<RegisterTpPage />} />
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -58,6 +74,12 @@ export default function App() {
         <Route path="clients/:id" element={<AdminClientDetailPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
         <Route path="training-providers" element={<AdminTrainingProvidersPage />} />
+        <Route path="training-providers/hrdc/:lookupKey" element={<AdminHrdcProviderDetailPage />} />
+        <Route path="tp-orgs" element={<AdminTpOrgsRedirect />} />
+        <Route path="tp-orgs/:id" element={<AdminTpOrgDetailPage />} />
+        <Route path="courses" element={<AdminCoursesPage />} />
+        <Route path="courses/p/:id" element={<AdminCourseDetailPage />} />
+        <Route path="courses/view" element={<AdminCourseDetailPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
       </Route>
@@ -75,13 +97,27 @@ export default function App() {
         <Route path="promotions" element={<TrainerPromotionsPage />} />
       </Route>
 
+      <Route path="/tp" element={<TpLayout />}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<TpDashboardPage />} />
+        <Route path="courses" element={<TpCoursesPage />} />
+        <Route path="courses/new" element={<TpCourseCreatePage />} />
+        <Route path="courses/:id" element={<TpCourseDetailPage />} />
+        <Route path="schedules" element={<TpSchedulesPage />} />
+        <Route path="schedules/new" element={<TpScheduleCreatePage />} />
+        <Route path="ratings" element={<TpRatingsPage />} />
+        <Route path="profile" element={<TpProfilePage />} />
+      </Route>
+
       <Route path="/client" element={<ClientLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<ClientDashboardPage />} />
         <Route path="profile" element={<ClientProfilePage />} />
         <Route path="profile/edit" element={<ClientProfileEditPage />} />
-        <Route path="trainers" element={<ClientTrainersPage />} />
-        <Route path="trainers/:id" element={<ClientTrainerDetailPage />} />
+        <Route path="courses" element={<ClientCoursesPage />} />
+        <Route path="courses/:id" element={<ClientCourseDetailPage />} />
+        <Route path="trainers" element={<Navigate to="/client/courses" replace />} />
+        <Route path="trainers/:id" element={<Navigate to="/client/courses" replace />} />
         <Route path="messages" element={<ClientMessagesPage />} />
         <Route path="subscription" element={<ClientSubscriptionPage />} />
         <Route path="subscription/checkout" element={<ClientSubscriptionCheckoutPage />} />

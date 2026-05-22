@@ -156,7 +156,7 @@ export default function TrainerCertificatePage() {
                 showRefresh
               />
 
-              <div className="rounded-xl border border-[color:var(--border)] bg-white p-4">
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
                 <div className="text-sm font-semibold">Account status</div>
                 <p className="mt-3 text-xs text-[color:var(--text-muted)]">
                   Final approval is decided by an administrator.

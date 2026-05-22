@@ -50,16 +50,42 @@ function SiteHeader() {
             </div>
           </div>
         </Link>
-        <nav className="flex items-center gap-2">
-          <ButtonLink variant="outline" size="sm" href="/register/trainer">
-            Register as trainer
-          </ButtonLink>
+        <nav className="flex flex-wrap items-center justify-end gap-2">
           <ButtonLink size="sm" href="/login">
             Login
           </ButtonLink>
         </nav>
       </div>
     </header>
+  );
+}
+
+/* ---------------- Role registration CTAs ---------------- */
+
+function RoleRegisterButtons({
+  className,
+  tone = "default",
+}: {
+  className?: string;
+  tone?: "default" | "onPrimary";
+}) {
+  const outlineClass =
+    tone === "onPrimary"
+      ? "!border-white/40 !bg-transparent !text-white hover:!bg-white/10"
+      : undefined;
+
+  return (
+    <div className={`flex flex-wrap justify-center gap-3 ${className ?? ""}`}>
+      <ButtonLink size="lg" variant="outline" href="/register/tp" className={outlineClass}>
+        Training Provider
+      </ButtonLink>
+      <ButtonLink size="lg" variant="outline" href="/register/trainer" className={outlineClass}>
+        Trainer
+      </ButtonLink>
+      <ButtonLink size="lg" variant="outline" href="/register/client" className={outlineClass}>
+        Employer
+      </ButtonLink>
+    </div>
   );
 }
 
@@ -80,18 +106,11 @@ function HeroSection() {
           grow their client base &mdash; all in one platform.
         </p>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <ButtonLink size="lg" href="/client/trainers">
-            Browse verified trainers
-          </ButtonLink>
-          <ButtonLink size="lg" variant="outline" href="/register/trainer">
-            I&rsquo;m a trainer
-          </ButtonLink>
-        </div>
+        <RoleRegisterButtons className="mt-6" />
 
         <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-6 border-t border-[color:var(--border)] pt-6">
           <MiniStat value="500+" label="Active trainer profiles" />
-          <MiniStat value="1,200+" label="Company searches/month" />
+          <MiniStat value="1,200+" label="Employer searches/month" />
           <MiniStat value="Free" label="Basic listing" />
         </div>
       </div>
@@ -193,25 +212,25 @@ function WhyListSection() {
             tone="blue"
             icon={<SearchIcon className="h-5 w-5" />}
             title="Get discovered by HR teams"
-            desc="Companies search our platform when planning their annual training calendar with levy funds."
+            desc="Employers search our platform when planning their annual training calendar with levy funds."
           />
           <PerkCard
             tone="amber"
             icon={<StarIcon className="h-5 w-5" />}
             title="Build your reputation"
-            desc="Collect reviews from companies after every engagement. Your track record speaks for itself."
+            desc="Collect reviews from employers after every engagement. Your track record speaks for itself."
           />
           <PerkCard
             tone="red"
             icon={<MonitorIcon className="h-5 w-5" />}
             title="In-person, virtual & hybrid"
-            desc="List all your delivery modes. Reach companies across Malaysia, not just your local area."
+            desc="List all your delivery modes. Reach employers across Malaysia, not just your local area."
           />
           <PerkCard
             tone="purple"
             icon={<ChartIcon className="h-5 w-5" />}
             title="Profile analytics"
-            desc="See how many companies viewed your profile, which topics they searched, and where inquiries come from."
+            desc="See how many employers viewed your profile, which topics they searched, and where inquiries come from."
           />
         </div>
       </div>
@@ -268,7 +287,7 @@ function HowItWorksSection() {
             From search to certified training in 4 steps
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-            Trainers get matched with the right clients. Companies claim back
+            Trainers get matched with the right clients. Employers claim back
             training costs.
           </p>
         </div>
@@ -276,7 +295,7 @@ function HowItWorksSection() {
         <ol className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <FlowStep
             n={1}
-            title="Company subscribes"
+            title="Employer subscribes"
             desc="Unlock full trainer profiles, contact details, and programme packages."
           />
           <FlowStep
@@ -364,7 +383,7 @@ function TrainerPlansSection() {
               "Full profile listing",
               "Unlimited training topics",
               "Profile view analytics",
-              "Direct company contact info",
+              "Direct employer contact info",
             ]}
           />
         </div>
@@ -444,26 +463,10 @@ function FinalCtaSection() {
           Start hiring smarter today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/70">
-          Join companies across Malaysia that use MY Certified Trainer to find
+          Join employers across Malaysia that use MY Certified Trainer to find
           verified trainers and maximise their HRD Corp levy.
         </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <ButtonLink
-            size="lg"
-            href="/register/client"
-            className="!bg-white !text-[color:var(--primary)] hover:!opacity-90"
-          >
-            I&rsquo;m looking for trainers
-          </ButtonLink>
-          <ButtonLink
-            size="lg"
-            variant="outline"
-            href="/register/trainer"
-            className="!border-white/40 !bg-transparent !text-white hover:!bg-white/10"
-          >
-            I&rsquo;m a trainer
-          </ButtonLink>
-        </div>
+        <RoleRegisterButtons className="mt-8" tone="onPrimary" />
       </div>
     </section>
   );
@@ -499,6 +502,7 @@ function SiteFooter() {
 function roleHome(role: string) {
   if (role === "ADMIN") return "/admin/dashboard";
   if (role === "TRAINER") return "/trainer/dashboard";
+  if (role === "TRAINING_PROVIDER") return "/tp/dashboard";
   return "/client/dashboard";
 }
 

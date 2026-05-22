@@ -12,7 +12,7 @@ import {
 export type SessionUser = {
   id: string;
   email: string;
-  role: "ADMIN" | "TRAINER" | "CLIENT";
+  role: "ADMIN" | "TRAINER" | "CLIENT" | "TRAINING_PROVIDER";
 };
 
 type AuthState = {

@@ -11,10 +11,37 @@ import {
   registerInputClass,
   registerTextareaClass,
 } from "@/components/register/register-form-primitives";
-import { DELIVERY_MODE_OPTIONS, TagListEditor } from "@/components/register/trainer-field-widgets";
+import { RegisterStepper } from "@/components/register/register-stepper";
+import {
+  DELIVERY_MODE_OPTIONS,
+  MalaysiaStatesMultiSelect,
+  TagListEditor,
+} from "@/components/register/trainer-field-widgets";
 import { MALAYSIA_TRAINING_LANGUAGES } from "@/lib/malaysia-training-languages";
 import { MALAYSIA_STATES } from "@/lib/malaysia-states";
 import { cn } from "@/components/ui/button";
+
+const TRAINER_REGISTER_STEPS = [
+  "Account credentials",
+  "Personal info",
+  "Professional background",
+  "HRDC certification",
+] as const;
+
+const LAST_REGISTER_STEP = TRAINER_REGISTER_STEPS.length - 1;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(email: string): boolean {
+  return EMAIL_PATTERN.test(email.trim());
+}
+
+function isValidPhone(phone: string): boolean {
+  const trimmed = phone.trim();
+  if (!/^\+?\d+$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15;
+}
 
 export function TrainerRegisterForm() {
   const navigate = useNavigate();
@@ -51,6 +78,8 @@ export function TrainerRegisterForm() {
   const [deliveryModes, setDeliveryModes] = useState<Set<string>>(() => new Set());
   const [willingToTravel, setWillingToTravel] = useState<"" | "Yes" | "No">("");
   const [travelLocations, setTravelLocations] = useState<string[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [maxReachableStep, setMaxReachableStep] = useState(0);
 
   const deliveryList = useMemo(() => [...deliveryModes], [deliveryModes]);
   const languagesJoined = useMemo(() => [...languagesSelected].sort().join(", "), [languagesSelected]);
@@ -199,6 +228,93 @@ export function TrainerRegisterForm() {
     setCertFileInputKey((k) => k + 1);
   }
 
+  function validateStep(step: number): string | null {
+    switch (step) {
+      case 0: {
+        if (!form.email.trim()) return "Email is required.";
+        if (!isValidEmail(form.email)) return "Enter a valid email address.";
+        if (!form.password) return "Password is required.";
+        if (form.password.length < 8) {
+          return "Password must be at least 8 characters.";
+        }
+        return null;
+      }
+      case 1: {
+        if (!form.fullName.trim() || form.fullName.length < 2) return "Full name is required.";
+        if (!form.phone.trim()) return "Phone number is required.";
+        if (!isValidPhone(form.phone)) {
+          return "Enter a valid phone number (digits only, 8–15 digits).";
+        }
+        if (!form.stateOrLocation) return "State is required.";
+        if (languagesSelected.size === 0) return "Select at least one language.";
+        return null;
+      }
+      case 2: {
+        if (Number.isNaN(form.yearsExp) || form.yearsExp < 0) {
+          return "Years of experience is required.";
+        }
+        if (expertiseTags.length === 0) return "Add at least one training expertise.";
+        if (deliveryList.length === 0) return "Select at least one training delivery mode.";
+        if (willingToTravel !== "Yes" && willingToTravel !== "No") {
+          return "Please choose Yes or No for willing to travel.";
+        }
+        if (willingToTravel === "Yes" && travelLocations.length === 0) {
+          return "Select at least one location you can travel to.";
+        }
+        if (!form.bio.trim()) return "Professional bio is required.";
+        if (form.bio.length < 10) {
+          return "Professional bio must be at least 10 characters.";
+        }
+        return null;
+      }
+      case 3:
+        if (!form.certFileUrl) {
+          return "Upload your HRDC certificate (PDF, PNG, or JPEG).";
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  function goToStep(step: number) {
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleNext() {
+    const message = validateStep(currentStep);
+    if (message) {
+      setErr(message);
+      return;
+    }
+    setErr(null);
+    const next = Math.min(currentStep + 1, LAST_REGISTER_STEP);
+    setMaxReachableStep((prev) => Math.max(prev, next));
+    goToStep(next);
+  }
+
+  function handleBack() {
+    setErr(null);
+    goToStep(Math.max(0, currentStep - 1));
+  }
+
+  function handleStepClick(index: number) {
+    if (index === currentStep) return;
+    if (index > currentStep) {
+      for (let s = currentStep; s < index; s++) {
+        const message = validateStep(s);
+        if (message) {
+          setErr(message);
+          return;
+        }
+      }
+    }
+    setErr(null);
+    setMaxReachableStep((prev) => Math.max(prev, index));
+    goToStep(index);
+  }
+
   return (
     <form
       className="space-y-6"
@@ -206,29 +322,14 @@ export function TrainerRegisterForm() {
         e.preventDefault();
         setErr(null);
 
-        if (expertiseTags.length === 0) {
-          setErr("Add at least one training expertise.");
-          return;
-        }
-        if (deliveryList.length === 0) {
-          setErr("Select at least one training delivery mode.");
-          return;
-        }
-        if (willingToTravel !== "Yes" && willingToTravel !== "No") {
-          setErr("Please choose Yes or No for willing to travel.");
-          return;
-        }
-        if (willingToTravel === "Yes" && travelLocations.length === 0) {
-          setErr("Add at least one location you can travel to.");
-          return;
-        }
-        if (!form.stateOrLocation) {
-          setErr("Select your state.");
-          return;
-        }
-        if (!form.certFileUrl) {
-          setErr("Upload your HRDC certificate (PDF, PNG, or JPEG).");
-          return;
+        for (let s = 0; s <= LAST_REGISTER_STEP; s++) {
+          const message = validateStep(s);
+          if (message) {
+            setErr(message);
+            setMaxReachableStep((prev) => Math.max(prev, s));
+            goToStep(s);
+            return;
+          }
         }
 
         setLoading(true);
@@ -280,8 +381,20 @@ export function TrainerRegisterForm() {
         navigate("/trainer/dashboard", { replace: true });
       }}
     >
-      <RegisterSection title="Add profile photo" titleClassName="text-left">
-        <div className="flex flex-col items-stretch gap-4">
+      <RegisterStepper
+        steps={TRAINER_REGISTER_STEPS}
+        currentStep={currentStep}
+        maxReachableStep={maxReachableStep}
+        onStepClick={handleStepClick}
+      />
+
+      {currentStep === 0 ? (
+      <RegisterSection title="Account credentials" hideTitle>
+        <div className="flex flex-col items-stretch gap-6">
+        <div className="flex flex-col items-stretch gap-4 border-b border-[color:var(--border)] pb-6">
+          <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
+            Profile photo
+          </div>
           <div className="flex justify-center">
             <div className="relative">
               <input
@@ -359,11 +472,9 @@ export function TrainerRegisterForm() {
             ) : null}
           </div>
         </div>
-      </RegisterSection>
 
-      <RegisterSection title="Account credentials">
         <RegisterFieldGrid>
-          <RegisterField label="Email" htmlFor="reg-email">
+          <RegisterField label="Email" htmlFor="reg-email" required>
             <input
               id="reg-email"
               type="email"
@@ -375,7 +486,7 @@ export function TrainerRegisterForm() {
               className={registerInputClass}
             />
           </RegisterField>
-          <RegisterField label="Password" htmlFor="reg-password">
+          <RegisterField label="Password" htmlFor="reg-password" required>
             <input
               id="reg-password"
               type="password"
@@ -388,11 +499,14 @@ export function TrainerRegisterForm() {
             />
           </RegisterField>
         </RegisterFieldGrid>
+        </div>
       </RegisterSection>
+      ) : null}
 
-      <RegisterSection title="Personal info">
+      {currentStep === 1 ? (
+      <RegisterSection title="Personal info" hideTitle>
         <RegisterFieldGrid>
-          <RegisterField label="Full name" htmlFor="reg-fullName">
+          <RegisterField label="Full name" htmlFor="reg-fullName" required>
             <input
               id="reg-fullName"
               required
@@ -403,18 +517,24 @@ export function TrainerRegisterForm() {
               className={registerInputClass}
             />
           </RegisterField>
-          <RegisterField label="Phone number" htmlFor="reg-phone">
+          <RegisterField label="Phone number" htmlFor="reg-phone" required>
             <input
               id="reg-phone"
               required
-              minLength={5}
-              placeholder="+60123456789"
+              type="tel"
+              inputMode="numeric"
+              pattern="\+?\d{8,15}"
+              minLength={8}
+              maxLength={16}
+              placeholder="60123456789"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, phone: e.target.value.replace(/[^\d+]/g, "") })
+              }
               className={registerInputClass}
             />
           </RegisterField>
-          <RegisterField label="State" htmlFor="reg-state">
+          <RegisterField label="State" htmlFor="reg-state" required>
             <select
               id="reg-state"
               required
@@ -430,7 +550,7 @@ export function TrainerRegisterForm() {
               ))}
             </select>
           </RegisterField>
-          <RegisterField label="Languages" wide>
+          <RegisterField label="Languages" wide required>
             <p className="mb-3 text-xs text-[color:var(--text-muted)]">
               Select all languages or dialects you can deliver training in.
             </p>
@@ -453,10 +573,12 @@ export function TrainerRegisterForm() {
           </RegisterField>
         </RegisterFieldGrid>
       </RegisterSection>
+      ) : null}
 
-      <RegisterSection title="Professional background">
+      {currentStep === 2 ? (
+      <RegisterSection title="Professional background" hideTitle>
         <RegisterFieldGrid>
-          <RegisterField label="Years of experience" htmlFor="reg-years">
+          <RegisterField label="Years of experience" htmlFor="reg-years" required>
             <input
               id="reg-years"
               type="number"
@@ -469,7 +591,7 @@ export function TrainerRegisterForm() {
             />
           </RegisterField>
 
-          <RegisterField label="Training expertise" htmlFor="reg-expertise-draft" wide>
+          <RegisterField label="Training expertise" htmlFor="reg-expertise-draft" wide required>
             <p className="mb-3 text-xs text-[color:var(--text-muted)]">
               Add the topics, skills, or programme areas you are qualified to train (for example: leadership, HR
               compliance, digital skills, or safety)
@@ -481,7 +603,7 @@ export function TrainerRegisterForm() {
             />
           </RegisterField>
 
-          <RegisterField label="Training delivery mode" wide>
+          <RegisterField label="Training delivery mode" wide required>
             <p className="mb-3 text-xs text-[color:var(--text-muted)]">
               Select all that apply.
             </p>
@@ -503,7 +625,7 @@ export function TrainerRegisterForm() {
             </div>
           </RegisterField>
 
-          <RegisterField label="Willing to travel" wide>
+          <RegisterField label="Willing to travel" wide required>
             <div className="flex flex-wrap gap-4">
               <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[color:var(--text)]">
                 <input
@@ -539,13 +661,12 @@ export function TrainerRegisterForm() {
                   Where can you travel?
                 </div>
                 <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                  Add regions or cities (e.g. Klang Valley, Penang).
+                  Select all locations you are willing to travel to.
                 </p>
                 <div className="mt-3">
-                  <TagListEditor
-                    tags={travelLocations}
+                  <MalaysiaStatesMultiSelect
+                    selected={travelLocations}
                     onChange={setTravelLocations}
-                    placeholder="Add a location and press Enter"
                   />
                 </div>
               </div>
@@ -574,7 +695,7 @@ export function TrainerRegisterForm() {
               className={registerInputClass}
             />
           </RegisterField>
-          <RegisterField label="Professional bio" htmlFor="reg-bio" wide>
+          <RegisterField label="Professional bio" htmlFor="reg-bio" wide required>
             <textarea
               id="reg-bio"
               required
@@ -588,8 +709,10 @@ export function TrainerRegisterForm() {
           </RegisterField>
         </RegisterFieldGrid>
       </RegisterSection>
+      ) : null}
 
-      <RegisterSection title="HRDC certification">
+      {currentStep === 3 ? (
+      <RegisterSection title="HRDC certification" hideTitle>
         <RegisterField label="Certificate file" wide>
           <p className="mb-3 text-xs text-[color:var(--text-muted)]">
             Upload your HRD Corp trainer certificate as a PDF or image (PNG, JPEG), max 10MB.
@@ -626,6 +749,7 @@ export function TrainerRegisterForm() {
           ) : null}
         </RegisterField>
       </RegisterSection>
+      ) : null}
 
       {err ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -633,13 +757,38 @@ export function TrainerRegisterForm() {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading || certUploading || photoUploading}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[color:var(--primary)] to-[#163a66] px-4 text-sm font-semibold text-[color:var(--primary-foreground)] shadow-md transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loading ? "Creating…" : "Create trainer account"}
-      </button>
+      <div className="flex items-center justify-between gap-3">
+        {currentStep > 0 ? (
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={loading || certUploading || photoUploading}
+            className="flex h-11 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-semibold text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Back
+          </button>
+        ) : (
+          <span />
+        )}
+        {currentStep < LAST_REGISTER_STEP ? (
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={loading || certUploading || photoUploading}
+            className="ml-auto flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-[color:var(--primary)] to-[#163a66] px-5 text-sm font-semibold text-[color:var(--primary-foreground)] shadow-md transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={loading || certUploading || photoUploading}
+            className="ml-auto flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-[color:var(--primary)] to-[#163a66] px-5 text-sm font-semibold text-[color:var(--primary-foreground)] shadow-md transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Creating…" : "Create trainer account"}
+          </button>
+        )}
+      </div>
     </form>
   );
 }

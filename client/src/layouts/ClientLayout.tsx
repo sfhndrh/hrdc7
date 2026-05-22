@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Navigate, Outlet } from "react-router-dom";
+import { parseAccountSuspendedResponse } from "@/lib/account-suspension";
+import { Navigate, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { AccountSuspendedDialog } from "@/components/client/account-suspended-dialog";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export function ClientLayout() {
-  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading, refresh } = useAuth();
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
   const [row, setRow] = useState<{
     companyName: string | null;
     industry: string | null;
@@ -32,9 +36,14 @@ export function ClientLayout() {
       return;
     }
     void apiFetch("/api/client/me", { credentials: "include" })
-      .then((r) => r.json())
-      .then(
-        (d: {
+      .then(async (r) => {
+        const suspended = await parseAccountSuspendedResponse(r.clone());
+        if (suspended) {
+          setSuspensionReason(suspended.suspensionReason);
+          setRow(null);
+          return;
+        }
+        const d = (await r.json()) as {
           client?: {
             companyName: string;
             industry: string;
@@ -42,33 +51,33 @@ export function ClientLayout() {
             profileComplete: boolean;
             subscription: { status: string; expiresAt: Date | null } | null;
           } | null;
-        }) => {
-          if (d.client) {
-            setRow({
-              companyName: d.client.companyName,
-              industry: d.client.industry,
-              profilePhoto: d.client.profilePhoto ?? null,
-              profileComplete: d.client.profileComplete,
-              subscription: d.client.subscription
-                ? {
-                    status: d.client.subscription.status,
-                    expiresAt: d.client.subscription.expiresAt
-                      ? new Date(d.client.subscription.expiresAt).toISOString()
-                      : null,
-                  }
-                : null,
-            });
-          } else {
-            setRow(null);
-          }
-        },
-      )
+        };
+        if (d.client) {
+          setSuspensionReason(null);
+          setRow({
+            companyName: d.client.companyName,
+            industry: d.client.industry,
+            profilePhoto: d.client.profilePhoto ?? null,
+            profileComplete: d.client.profileComplete,
+            subscription: d.client.subscription
+              ? {
+                  status: d.client.subscription.status,
+                  expiresAt: d.client.subscription.expiresAt
+                    ? new Date(d.client.subscription.expiresAt).toISOString()
+                    : null,
+                }
+              : null,
+          });
+        } else {
+          setRow(null);
+        }
+      })
       .finally(() => setShellLoading(false));
   }, [user, loading]);
 
   if (loading || shellLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f7fc] text-sm text-[color:var(--text-muted)]">
+      <div className="flex min-h-screen items-center justify-center bg-[color:var(--page-bg)] text-sm text-[color:var(--text-muted)]">
         Loading…
       </div>
     );
@@ -82,17 +91,31 @@ export function ClientLayout() {
     return <Navigate to="/" replace />;
   }
 
+  if (suspensionReason !== null && user.role === "CLIENT") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[color:var(--page-bg)]">
+        <AccountSuspendedDialog
+          suspensionReason={suspensionReason}
+          onDismiss={() => {
+            setSuspensionReason(null);
+            void refresh().then(() => navigate("/login", { replace: true }));
+          }}
+        />
+      </div>
+    );
+  }
+
   const isAdminViewer = user.role === "ADMIN";
 
   const displayName = isAdminViewer
     ? user.email ?? "Admin"
-    : row?.companyName ?? user.email ?? "Company";
+    : row?.companyName ?? user.email ?? "Employer";
 
   const roleLine = isAdminViewer
     ? "Admin preview"
     : row?.industry
       ? `${row.industry}`
-      : "Company account";
+      : "Employer account";
 
   const subActive =
     !!row?.subscription &&
@@ -105,29 +128,29 @@ export function ClientLayout() {
       ? { variant: "success" as const, text: "Pro" }
       : row?.profileComplete
         ? ({ variant: "warning" as const, text: "Free" })
-        : ({ variant: "warning" as const, text: "Complete company profile" });
+        : ({ variant: "warning" as const, text: "Complete employer profile" });
 
   return (
     <DashboardShell
       brandName="MY Certified Trainer"
-      portalTagline="Company portal"
+      portalTagline="Employer portal"
       displayName={displayName}
       roleLine={roleLine}
-      headerRoleLabel={isAdminViewer ? "Admin" : "Company"}
+      headerRoleLabel={isAdminViewer ? "Admin" : "Employer"}
       statusPill={statusPill}
       userEmail={user.email ?? ""}
       avatarUrl={isAdminViewer ? null : row?.profilePhoto ?? null}
       subtitle=""
       nav={[
         { href: "/client/dashboard", label: "Dashboard", icon: <IconHome /> },
-        { href: "/client/profile", label: "Company profile", icon: <IconBuilding /> },
-        { href: "/client/trainers", label: "Browse trainers", icon: <IconSearch /> },
+        { href: "/client/profile", label: "Profile", icon: <IconBuilding /> },
+        { href: "/client/courses", label: "Courses", icon: <IconSearch /> },
         { href: "/client/messages", label: "Messages", icon: <IconInbox /> },
         { href: "/client/subscription", label: "Subscription", icon: <IconReceipt /> },
         { href: "/client/settings", label: "Settings", icon: <IconSettings /> },
       ]}
       sidebarCta={null}
-      searchPlaceholder="Search certified trainers, expertise tags…"
+      searchPlaceholder="Search courses, categories, providers…"
       showSearchBar={false}
       profileHref={isAdminViewer ? "/admin/profile" : "/client/profile"}
     >

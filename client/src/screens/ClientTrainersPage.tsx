@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiAssetUrl, apiFetch } from "@/lib/api";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -8,6 +8,7 @@ import { Link } from "@/components/link";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { PageHeaderIconSearch } from "@/components/dashboard/page-header-icons";
 import { ButtonLink } from "@/components/ui/button";
+import { MALAYSIA_STATES } from "@/lib/malaysia-states";
 
 type TrainerCardData = {
   id: string;
@@ -26,6 +27,8 @@ export default function ClientTrainersPage() {
   const [subscribed, setSubscribed] = useState(false);
   const [trainers, setTrainers] = useState<TrainerCardData[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
 
   const isAdmin = user?.role === "ADMIN";
   const unlockContent = isAdmin || subscribed;
@@ -62,6 +65,18 @@ export default function ClientTrainersPage() {
       });
   }, []);
 
+  const filtered = useMemo(() => {
+    if (!trainers) return [];
+    const needle = q.trim().toLowerCase();
+    const stateNeedle = locationFilter.trim().toLowerCase();
+    return trainers.filter((t) => {
+      if (stateNeedle && (t.location?.trim().toLowerCase() ?? "") !== stateNeedle) return false;
+      if (!needle) return true;
+      const hay = `${t.fullName} ${t.title} ${t.location} ${t.languages} ${t.deliveryModes} ${t.topics.join(" ")}`.toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [trainers, q, locationFilter]);
+
   return (
     <div className="space-y-6">
       <DashboardPageHeader
@@ -77,21 +92,37 @@ export default function ClientTrainersPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 gap-2">
-          <input
-            className="h-10 w-full rounded-md border bg-white px-3"
-            placeholder="Search by name or expertise..."
-          />
-          <select className="h-10 rounded-md border bg-white px-3 text-sm">
-            <option>All locations</option>
-            <option>Kuala Lumpur</option>
-            <option>Petaling Jaya</option>
-            <option>Penang</option>
-            <option>Johor Bahru</option>
+      <section
+        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm"
+        aria-label="Search trainers"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <label className="relative block min-w-0 flex-1">
+            <span className="sr-only">Search trainers</span>
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search by name or expertise…"
+              className="h-10 w-full rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] py-2 pl-10 pr-4 text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
+            />
+          </label>
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="h-10 shrink-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 md:min-w-[180px]"
+            aria-label="Filter by state"
+          >
+            <option value="">All locations</option>
+            {MALAYSIA_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
           </select>
         </div>
-      </div>
+      </section>
 
       {loadError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -100,11 +131,11 @@ export default function ClientTrainersPage() {
       ) : null}
 
       {trainers === null ? (
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-8 text-center text-sm text-[color:var(--text-muted)] shadow-sm">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 text-center text-sm text-[color:var(--text-muted)] shadow-sm">
           Loading approved trainers…
         </div>
       ) : trainers.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-white p-10 text-center shadow-sm">
+        <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] p-10 text-center shadow-sm">
           <div className="text-base font-semibold text-[color:var(--text)]">
             No approved trainers yet
           </div>
@@ -113,9 +144,18 @@ export default function ClientTrainersPage() {
             their HRDC certificate, they'll appear here for you to browse.
           </p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] p-10 text-center shadow-sm">
+          <div className="text-base font-semibold text-[color:var(--text)]">
+            No trainers match your search
+          </div>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-[color:var(--text-muted)]">
+            Try a different name, expertise topic, or state.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {trainers.map((t) => (
+          {filtered.map((t) => (
             <TrainerCard key={t.id} trainer={t} unlockContent={unlockContent} />
           ))}
         </div>
@@ -142,7 +182,7 @@ function TrainerCard({
   return (
     <Link
       href={`/client/trainers/${trainer.id}`}
-      className="flex flex-col rounded-2xl border border-[color:var(--border)] bg-gradient-to-br from-white via-[#f4f6ff] to-[#e3e8fb] p-5 text-[color:var(--text)] shadow-[0_8px_22px_rgba(11,31,59,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(11,31,59,0.10)]"
+      className="flex flex-col rounded-2xl border border-[color:var(--border)] bg-gradient-to-br from-[color:var(--card-gradient-from)] via-[color:var(--card-gradient-via)] to-[color:var(--card-gradient-to)] p-5 text-[color:var(--text)] shadow-[0_8px_22px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_var(--shadow-elevated)]"
     >
       <div className="flex items-start gap-3">
         <div
@@ -153,10 +193,10 @@ function TrainerCard({
             <img
               src={apiAssetUrl(trainer.profilePhoto)}
               alt=""
-              className="h-12 w-12 rounded-full border border-white bg-white object-cover shadow-sm"
+              className="h-12 w-12 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] object-cover shadow-sm"
             />
           ) : (
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-sm font-semibold text-sky-800 shadow-sm">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--avatar-placeholder-bg)] text-sm font-semibold text-[color:var(--avatar-placeholder-text)] shadow-sm">
               {initials || "T"}
             </div>
           )}
@@ -214,7 +254,7 @@ function TrainerCard({
               {trainer.topics.slice(0, 6).map((topic) => (
                 <span
                   key={topic}
-                  className="rounded-md border border-[color:var(--border)] bg-white/70 px-2 py-0.5 text-xs text-[color:var(--text)]"
+                  className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/70 px-2 py-0.5 text-xs text-[color:var(--text)]"
                 >
                   {topic}
                 </span>
@@ -246,6 +286,15 @@ function InfoCell({
   );
 }
 
+function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path strokeLinecap="round" d="M20 20l-3.3-3.3" />
+    </svg>
+  );
+}
+
 function LockIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -274,7 +323,7 @@ function Pill({
   const toneClass: Record<typeof tone, string> = {
     green: "border-emerald-300 bg-emerald-100 text-emerald-700",
     white:
-      "border-[color:var(--border)] bg-white text-[color:var(--text)]",
+      "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]",
   };
   return (
     <span

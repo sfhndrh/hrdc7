@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiAssetUrl, apiUrl } from "@/lib/api";
 
 /**
- * Banner shown at the top of the trainer/company edit profile pages.
+ * Banner shown at the top of the trainer/employer edit profile pages.
  * The avatar is clickable: clicking it opens a file picker and uploads the
  * chosen image to the supplied endpoints. The new URL is reported to the
  * parent via `onPhotoUpdated` so the wider page state stays in sync.
@@ -80,13 +80,13 @@ export function ProfilePhotoBanner({
   }
 
   return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={busy}
-          className="group relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-sky-100 text-lg font-semibold text-sky-700 ring-1 ring-[color:var(--border)] transition hover:ring-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-wait disabled:opacity-70"
+          className="group relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-[color:var(--avatar-placeholder-bg)] text-lg font-semibold text-[color:var(--avatar-placeholder-text)] ring-1 ring-[color:var(--border)] transition hover:ring-[color:var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)] disabled:cursor-wait disabled:opacity-70"
           aria-label="Change profile photo"
         >
           {photo ? (

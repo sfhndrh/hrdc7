@@ -154,12 +154,12 @@ export default function AdminSettingsPage() {
       />
       <Card>
         <CardContent className="pt-6">
-          <div className="rounded-xl border border-[color:var(--border)] bg-white p-6">
+          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6">
             <div className="text-sm font-semibold text-[color:var(--text)]">
               Bank details &amp; QR code
             </div>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-              Payment details shown to companies on their subscription page.
+              Payment details shown to employers on their subscription page.
             </p>
 
             <div className="mt-6 grid gap-8 md:grid-cols-2 md:gap-10">
@@ -171,7 +171,7 @@ export default function AdminSettingsPage() {
                   Choose a PNG or JPG (max 5MB).
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[color:var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-[color:var(--text)] shadow-sm transition-colors hover:border-neutral-200 hover:bg-neutral-100 focus-within:outline-none focus-within:ring-2 focus-within:ring-neutral-200">
+                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2.5 text-sm font-medium text-[color:var(--text)] shadow-sm transition-colors hover:border-neutral-200 hover:bg-neutral-100 focus-within:outline-none focus-within:ring-2 focus-within:ring-neutral-200">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -199,7 +199,7 @@ export default function AdminSettingsPage() {
                     </button>
                   ) : null}
                 </div>
-                <div className="mt-4 flex h-64 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[color:var(--border)] bg-white p-3 text-sm text-[color:var(--text-muted)]">
+                <div className="mt-4 flex h-64 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-sm text-[color:var(--text-muted)]">
                   {form.qrImageUrl ? (
                     <img
                       src={apiAssetUrl(form.qrImageUrl)}
@@ -297,7 +297,7 @@ function Field({
     <div className="space-y-1">
       <label className="text-sm font-medium">{label}</label>
       <input
-        className="h-10 w-full rounded-md border border-[color:var(--border)] bg-white px-3 text-sm text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)] disabled:opacity-60"
+        className="h-10 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none focus:ring-1 focus:ring-[color:var(--primary)] disabled:opacity-60"
         placeholder={placeholder}
         value={value}
         onChange={onChange}

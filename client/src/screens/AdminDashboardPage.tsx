@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{
     pendingApprovals: number;
     activeSubscriptions: number;
-    newUsersWeek: number;
+    pendingPaymentApprovals: number;
   } | null>(null);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
 
@@ -61,7 +61,7 @@ export default function AdminDashboardPage() {
 
   const pendingApprovals = stats?.pendingApprovals ?? "—";
   const activeSubscriptions = stats?.activeSubscriptions ?? "—";
-  const newUsersWeek = stats?.newUsersWeek ?? "—";
+  const pendingPaymentApprovals = stats?.pendingPaymentApprovals ?? "—";
 
   return (
     <div className="space-y-6">
@@ -74,20 +74,23 @@ export default function AdminDashboardPage() {
           trend="Items in your approval queue"
           gradient="bg-gradient-to-br from-orange-400 via-rose-500 to-pink-600"
           icon={<QueueIcon />}
+          href="/admin/approval"
         />
         <GradientStatCard
           title="Active subscriptions"
           value={String(activeSubscriptions)}
-          trend="Companies with full trainer access"
+          trend="Employers with full trainer access"
           gradient="bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-800"
           icon={<SubIcon />}
+          href="/admin/clients"
         />
         <GradientStatCard
-          title="New sign-ups (7d)"
-          value={String(newUsersWeek)}
-          trend="All roles registering on the platform"
+          title="Payment approval"
+          value={String(pendingPaymentApprovals)}
+          trend="Subscriptions awaiting your approve or reject"
           gradient="bg-gradient-to-br from-violet-400 via-purple-600 to-indigo-900"
-          icon={<UserIcon />}
+          icon={<PaymentApprovalIcon />}
+          href="/admin/payments"
         />
       </div>
 
@@ -103,7 +106,7 @@ export default function AdminDashboardPage() {
             <DualSeriesBarChart
               xLabels={regSeries.labels}
               seriesA={{ label: "Trainers", values: regSeries.trainers, colorClass: "bg-indigo-600" }}
-              seriesB={{ label: "Companies", values: regSeries.companies, colorClass: "bg-pink-500" }}
+              seriesB={{ label: "Employers", values: regSeries.companies, colorClass: "bg-pink-500" }}
             />
           )}
         </AnalyticsChartCard>
@@ -145,10 +148,14 @@ function SubIcon() {
   );
 }
 
-function UserIcon() {
+function PaymentApprovalIcon() {
   return (
     <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+      />
     </svg>
   );
 }

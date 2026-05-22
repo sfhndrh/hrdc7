@@ -4,8 +4,8 @@ import { ClientRegisterForm } from "@/pages/ClientRegisterForm";
 export default function ClientRegisterPage() {
   return (
     <RegisterPageShell
-      title="Register as Company"
-      description="Create your company profile."
+      title="Register as Employer"
+      description="Create your employer profile."
       wideCard
       otherRegisterHref="/register/trainer"
       otherRegisterLabel="Trainer"

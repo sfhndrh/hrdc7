@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Navigate, Outlet } from "react-router-dom";
+import { parseAccountSuspendedResponse } from "@/lib/account-suspension";
+import { Navigate, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { AccountSuspendedDialog } from "@/components/client/account-suspended-dialog";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { normalizeProfilePhotoUrl } from "@/lib/profile-photo";
 import {
@@ -19,7 +21,9 @@ function trainerIsApproved(status: string) {
 }
 
 export function TrainerLayout() {
-  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading, refresh } = useAuth();
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
   const [trainerRecord, setTrainerRecord] = useState<{
     fullName: string;
     status: string;
@@ -43,36 +47,47 @@ export function TrainerLayout() {
       return;
     }
     void apiFetch("/api/trainer/me", { credentials: "include" })
-      .then((r) => r.json())
-      .then(
-        (d: {
+      .then(async (r) => {
+        const suspended = await parseAccountSuspendedResponse(r.clone());
+        if (suspended) {
+          setSuspensionReason(suspended.suspensionReason);
+          setTrainerRecord(null);
+          return;
+        }
+        const d = (await r.json()) as {
           trainer?: {
             fullName: string;
             status: string;
             profilePhoto?: string | null;
           } | null;
-        }) => {
-          if (d.trainer) {
-            setTrainerRecord({
-              fullName: d.trainer.fullName,
-              status: d.trainer.status,
-              profilePhoto: normalizeProfilePhotoUrl(d.trainer.profilePhoto),
-            });
-          } else {
-            setTrainerRecord(null);
-          }
-        },
-      )
+        };
+        if (d.trainer) {
+          setSuspensionReason(null);
+          setTrainerRecord({
+            fullName: d.trainer.fullName,
+            status: d.trainer.status,
+            profilePhoto: normalizeProfilePhotoUrl(d.trainer.profilePhoto),
+          });
+        } else {
+          setTrainerRecord(null);
+        }
+      })
       .finally(() => setShellLoading(false));
   }, [user, loading]);
 
-  if (!loading && !shellLoading && user?.role === "TRAINER" && !trainerRecord) {
+  if (
+    !loading &&
+    !shellLoading &&
+    user?.role === "TRAINER" &&
+    suspensionReason === null &&
+    !trainerRecord
+  ) {
     return <Navigate to="/" replace />;
   }
 
   if (loading || shellLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f7fc] text-sm text-[color:var(--text-muted)]">
+      <div className="flex min-h-screen items-center justify-center bg-[color:var(--page-bg)] text-sm text-[color:var(--text-muted)]">
         Loading…
       </div>
     );
@@ -84,6 +99,21 @@ export function TrainerLayout() {
 
   if (user.role !== "TRAINER" && user.role !== "ADMIN") {
     return <Navigate to="/" replace />;
+  }
+
+  if (suspensionReason !== null && user.role === "TRAINER") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[color:var(--page-bg)]">
+        <AccountSuspendedDialog
+          suspensionReason={suspensionReason}
+          description="Your trainer account has been suspended by an administrator."
+          onDismiss={() => {
+            setSuspensionReason(null);
+            void refresh().then(() => navigate("/login", { replace: true }));
+          }}
+        />
+      </div>
+    );
   }
 
   const isAdminViewer = user.role === "ADMIN";
@@ -109,7 +139,7 @@ export function TrainerLayout() {
       label: "Messages",
       icon: <TrainerNavIconInbox />,
       disabled: !approved,
-      hint: "Unlocks after approval — chat with companies interested in your training",
+      hint: "Unlocks after approval — chat with employers interested in your training",
     },
     {
       href: "/trainer/calendar",

@@ -4,6 +4,14 @@ import { type ReactNode } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-widgets";
 import { ProfilePhotoCircle } from "@/components/profile/profile-photo-circle";
+import {
+  clientDisplayName,
+  parseProfileData,
+  profileDisplayRows,
+  profileTypeLabel,
+  type ClientProfileData,
+  type ClientProfileType,
+} from "@/lib/client-profile";
 
 export type CompanyProfileViewClient = {
   companyName: string;
@@ -14,6 +22,8 @@ export type CompanyProfileViewClient = {
   phone: string;
   address: string | null;
   profilePhoto: string | null;
+  profileType?: string | null;
+  profileData?: ClientProfileData | unknown;
   createdAt: string;
   user: { email: string };
 };
@@ -31,13 +41,31 @@ export function CompanyProfileView({
   editHref?: string;
   footer?: ReactNode;
 }) {
-  const companyName = client.companyName?.trim() || "Your company";
-  const initials = companyName
+  const profileType = (client.profileType ?? "COMPANY") as ClientProfileType;
+  const profileData = parseProfileData(client.profileData);
+  const displayName = clientDisplayName(
+    profileType,
+    client.companyName,
+    client.contactName,
+    profileData,
+  );
+  const initials = displayName
     .split(/\s+/)
     .filter((part) => /^[A-Za-z0-9]/.test(part))
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+
+  const sections = profileDisplayRows(profileType, {
+    companyName: client.companyName,
+    regNumber: client.regNumber,
+    industry: client.industry,
+    contactName: client.contactName,
+    contactEmail: client.contactEmail,
+    phone: client.phone,
+    address: client.address,
+    userEmail: client.user.email,
+  }, profileData);
 
   const dateRegistered = new Date(client.createdAt).toLocaleDateString("en-MY", {
     year: "numeric",
@@ -49,18 +77,20 @@ export function CompanyProfileView({
     <div className="space-y-6">
       <DashboardPageHeader title={title} icon={icon} />
 
-      <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-4">
           <ProfilePhotoCircle
             photoUrl={client.profilePhoto}
             fallback={initials || "C"}
-            alt={companyName}
+            alt={displayName}
           />
           <div className="min-w-0">
             <h1 className="text-2xl font-bold leading-tight text-[color:var(--text)]">
-              {companyName}
+              {displayName}
             </h1>
-            <div className="mt-1 text-sm text-[color:var(--text-muted)]">Company</div>
+            <div className="mt-1 text-sm text-[color:var(--text-muted)]">
+              {profileTypeLabel(profileType)}
+            </div>
           </div>
         </div>
 
@@ -71,29 +101,24 @@ export function CompanyProfileView({
         </div>
       </div>
 
-      <Section title="Company information">
-        <FieldGrid>
-          <Field label="Company name" value={companyName} />
-          <Field label="Industry" value={client.industry?.trim() || "—"} />
-          <Field label="Date Registered" value={dateRegistered} />
-        </FieldGrid>
-      </Section>
-
-      <Section title="Contact & account">
-        <FieldGrid>
-          <Field
-            label="Contact email"
-            value={client.contactEmail?.trim() || client.user.email || "—"}
-          />
-          <Field label="Phone number" value={client.phone?.trim() || "—"} />
-          <Field
-            label="Business address"
-            value={client.address?.trim() || "—"}
-            wide
-            multiline
-          />
-        </FieldGrid>
-      </Section>
+      {sections.map((section) => (
+        <Section key={section.title} title={section.title}>
+          <FieldGrid>
+            {section.rows.map((row) => (
+              <Field
+                key={row.label}
+                label={row.label}
+                value={row.value}
+                wide={row.wide}
+                multiline={row.multiline}
+              />
+            ))}
+            {section.title === "Account" ? (
+              <Field label="Date registered" value={dateRegistered} />
+            ) : null}
+          </FieldGrid>
+        </Section>
+      ))}
 
       {footer}
     </div>
@@ -102,7 +127,7 @@ export function CompanyProfileView({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
         {title}
       </h2>
@@ -128,7 +153,7 @@ function Field({
 }) {
   return (
     <div
-      className={`rounded-xl border border-sky-100 bg-sky-50/70 p-4 ${
+      className={`rounded-xl border border-[color:var(--admin-search-border)] bg-[color:var(--admin-search-bg)] p-4 ${
         wide ? "md:col-span-2" : ""
       }`}
     >
@@ -137,7 +162,7 @@ function Field({
       </div>
       <div
         className={`mt-2 text-sm font-medium text-[color:var(--text)] ${
-          multiline ? "whitespace-pre-line leading-6" : ""
+          multiline ? "whitespace-pre-line" : ""
         }`}
       >
         {value}
@@ -145,5 +170,3 @@ function Field({
     </div>
   );
 }
-
-

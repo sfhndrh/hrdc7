@@ -44,8 +44,8 @@ export default function ClientProfilePage() {
   if (user.role === "ADMIN") {
     return (
       <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-sm text-[color:var(--text-muted)]">
-        Signed in as <strong className="text-[color:var(--text)]">admin</strong>. Open the company portal as
-        a client to manage company profile details.
+        Signed in as <strong className="text-[color:var(--text)]">admin</strong>. Open the employer portal as
+        a client to manage employer profile details.
       </div>
     );
   }
